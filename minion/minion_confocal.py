@@ -1,7 +1,7 @@
 """
 confocal module that creates the navigation-, tilt- and settings-tab
 """
-print('executing minion.minion_confocal.')
+print('executing minion.minion_confocal')
 
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
