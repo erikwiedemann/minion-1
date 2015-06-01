@@ -3,20 +3,17 @@ confocal module that creates the navigation-, tilt- and settings-tab
 """
 print('executing minion.minion_confocal')
 
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 import os
 import time
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 import numpy as np
-import scipy as sp
 import matplotlib as mpl
+
 mpl.use("Qt5Agg")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-from matplotlib import ticker
-import matplotlib.animation as animation
 
 
 class MinionConfocalUi(QWidget):
@@ -311,12 +308,22 @@ class MinionConfocalNavigation(QWidget):
         self.mapcanvas.draw()
 
     def mapstartclicked(self):
-        timer = QTimer()
-        timer.timeout.connect(self.test)
-        timer.singleShot(1000, self.test)
+        self.settletimer = QTimer()
+        self.settletimer.deleteLater()
 
-    def test(self):
-        print('timeout')
+        self.counttimer = QTimer()
+        self.counttimer.deleteLater()
+        self.tstart = time.time()
+        num=0
+        for i in range(10):
+            num += 1
+            print(num)
+            time.sleep(0.1)
+            ttemp = time.time()
+            time.sleep(1)
+            print(time.time()-ttemp)
+        print(time.time()-self.tstart)
+        print('done')
 
 
     def mapstopclicked(self):
