@@ -53,7 +53,14 @@ class MinionConfocalNavigation(QWidget):
         self.resolution = 100
         self.colormin = 0
         self.colormax = 100
+        self.mapdata = np.zeros((self.resolution, self.resolution))
+        self.colormin = self.mapdata.min()
+        self.colormax = self.mapdata.max()
+        # TODO - for loop to change mapdata values
 
+        self.uisetup()
+
+    def uisetup(self):
         # create map canvas
         self.mapfigure = Figure()
         self.mapcanvas = FigureCanvas(self.mapfigure)
@@ -62,12 +69,8 @@ class MinionConfocalNavigation(QWidget):
         self.toolbar = NavigationToolbar(self.mapcanvas, self)
         self.mapaxes = self.mapfigure.add_subplot(111)
         self.mapaxes.hold(False)
-        self.mapdata = np.zeros((self.resolution, self.resolution))
-        # TODO - for loop to change mapdata values
-        self.mapdata = MinionColfocalMapDataAquisition().mapdatatemp
 
-        self.colormin = self.mapdata.min()
-        self.colormax = self.mapdata.max()
+        self.mapdata = MinionColfocalMapDataAquisition().mapdatatemp  #delete later when datastream works
 
         self.map = self.mapaxes.matshow(self.mapdata, origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
         self.colorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.rainbow)
@@ -79,10 +82,11 @@ class MinionConfocalNavigation(QWidget):
         self.mapaxes.yaxis.set_ticks_position('left')
         self.mapaxes.yaxis.set_tick_params(direction='out')
 
-        self.hlinecoursor = self.mapaxes.axhline(color='w', linewidth=2)
-        self.hlinecoursor.set_ydata(self.xpos)
-        self.vlinecoursor = self.mapaxes.axvline(color='w', linewidth=2)
-        self.vlinecoursor.set_xdata(self.ypos)
+        # initialize cursor
+        self.hlinecursor = self.mapaxes.axhline(color='w', linewidth=2)
+        self.hlinecursor.set_ydata(self.xpos)
+        self.vlinecursor = self.mapaxes.axvline(color='w', linewidth=2)
+        self.vlinecursor.set_xdata(self.ypos)
 
         # create control area
         self.resolutionlabel = QLabel('resolution:')
@@ -236,7 +240,7 @@ class MinionConfocalNavigation(QWidget):
         when the xslider is changed the value is written into the xvaluetext field
         """
         self.xslidervaluetext.setValue(self.xslider.value()/100)
-        self.vlinecoursor.set_xdata(self.xslider.value()/100)
+        self.vlinecursor.set_xdata(self.xslider.value()/100)
         self.mapcanvas.draw()
 
     def xslidervaluetextchanged(self):
@@ -244,7 +248,7 @@ class MinionConfocalNavigation(QWidget):
         when the xvaluetext is changed and enter is hit the value is set on the xslider
         """
         self.xslider.setValue(self.xslidervaluetext.value()*100)
-        self.vlinecoursor.set_xdata(self.xslidervaluetext.value())
+        self.vlinecursor.set_xdata(self.xslidervaluetext.value())
         self.mapcanvas.draw()
 
     def sliderminmaxtextchanged(self):
@@ -268,7 +272,7 @@ class MinionConfocalNavigation(QWidget):
         when the xslider is changed the value is written into the xvaluetext field
         """
         self.yslidervaluetext.setValue(self.yslider.value()/100)
-        self.hlinecoursor.set_ydata(self.yslider.value()/100)
+        self.hlinecursor.set_ydata(self.yslider.value()/100)
         self.mapcanvas.draw()
 
     def yslidervaluetextchanged(self):
@@ -276,7 +280,7 @@ class MinionConfocalNavigation(QWidget):
         when the xvaluetext is changed and enter is hit the value is set on the xslider
         """
         self.yslider.setValue(self.yslidervaluetext.value()*100)
-        self.hlinecoursor.set_ydata(self.yslidervaluetext.value())
+        self.hlinecursor.set_ydata(self.yslidervaluetext.value())
         self.mapcanvas.draw()
 
     def resolutiontextchanged(self):
