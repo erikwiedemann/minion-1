@@ -105,7 +105,6 @@ class MinionConfocalNavigation(QWidget):
         self.colorautoscale = QPushButton('autoscale')
         self.colorautoscale.pressed.connect(self.colorautoscalepress)
 
-
         self.slidermintextlabel = QLabel('min')
         self.slidermaxtextlabel = QLabel('max')
         self.sliderpostextlabel = QLabel('pos')
@@ -154,7 +153,7 @@ class MinionConfocalNavigation(QWidget):
         self.yslider.setMinimum(self.ymin*100)
         self.yslider.setMaximum(self.ymax*100)
         self.yslider.setTickInterval(int((self.ymax-self.ymin)/10*100))
-        self.yslider.setValue(int((self.xmin+self.xmax)/2*100))
+        self.yslider.setValue(int((self.ymin+self.ymax)/2*100))
         self.yslider.setTickPosition(QSlider.TicksBelow)
         self.yslider.valueChanged.connect(self.ysliderchanged)
 
@@ -255,6 +254,14 @@ class MinionConfocalNavigation(QWidget):
         self.ymax = self.yslidermaxtext.value()
         self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])
         self.mapcanvas.draw()
+        self.xslider.setMinimum(self.xmin*100)
+        self.xslider.setMaximum(self.xmax*100)
+        self.xslider.setTickInterval(int((self.xmax-self.xmin)/10*100))
+        self.xslider.setValue(int((self.xmin+self.xmax)/2*100))
+        self.yslider.setMinimum(self.ymin*100)
+        self.yslider.setMaximum(self.ymax*100)
+        self.yslider.setTickInterval(int((self.ymax-self.ymin)/10*100))
+        self.yslider.setValue(int((self.ymin+self.ymax)/2*100))
 
     def ysliderchanged(self):
         """
