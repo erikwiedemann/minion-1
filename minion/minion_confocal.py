@@ -7,7 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import os
-import sys
+import time
 import numpy as np
 import scipy as sp
 import matplotlib as mpl
@@ -311,7 +311,13 @@ class MinionConfocalNavigation(QWidget):
         self.mapcanvas.draw()
 
     def mapstartclicked(self):
-        pass
+        timer = QTimer()
+        timer.timeout.connect(self.test)
+        timer.singleShot(1000, self.test)
+
+    def test(self):
+        print('timeout')
+
 
     def mapstopclicked(self):
         pass
