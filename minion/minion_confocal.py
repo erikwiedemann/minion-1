@@ -67,7 +67,7 @@ class MinionConfocalNavigation(QWidget):
         self.mapaxes = self.mapfigure.add_subplot(111)
         self.mapaxes.hold(False)
 
-        self.mapdata = MinionColfocalMapDataAquisition().mapdatatemp  #delete later when datastream works
+        self.mapdata = np.random.rand(100, 100)*100  #delete later when datastream works
 
         self.map = self.mapaxes.matshow(self.mapdata, origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
         self.colorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.rainbow)
@@ -308,26 +308,19 @@ class MinionConfocalNavigation(QWidget):
         self.mapcanvas.draw()
 
     def mapstartclicked(self):
-        self.settletimer = QTimer()
-        self.settletimer.deleteLater()
-
-        self.counttimer = QTimer()
-        self.counttimer.deleteLater()
-        self.tstart = time.time()
-        num=0
-        for i in range(10):
-            num += 1
-            print(num)
-            time.sleep(0.1)
-            ttemp = time.time()
-            time.sleep(1)
-            print(time.time()-ttemp)
-        print(time.time()-self.tstart)
+        self.objThread = QThread(self)
+        self.obj = MinionColfocalMapDataAquisition()
+        self.obj.moveToThread(self.objThread)
+        self.obj.finished.connect(self.objThread.quit)
+        self.objThread.started.connect(self.obj.longrun)
+        self.objThread.finished.connect(self.objThread.quit)
+        self.objThread.start()
         print('done')
 
 
     def mapstopclicked(self):
-        pass
+        self.obj.active=False
+        self.objThread.quit()
 
     def mapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
@@ -362,7 +355,30 @@ class MinionConfocalTilt(QWidget):
 
 
 class MinionColfocalMapDataAquisition(QObject):
-    def __init__(self, parent=None):
-        super(MinionColfocalMapDataAquisition, self).__init__(parent)
+    finished = pyqtSignal()
 
-        self.mapdatatemp = np.random.rand(100, 100)*100
+    def longrun(self):
+        self.active = True
+        while self.active:
+            settletimer = QTimer()
+            settletimer.deleteLater()
+
+            counttimer = QTimer()
+            counttimer.deleteLater()
+            tstart = time.time()
+            num=0
+            for i in range(1000):
+                num += 1
+                print(num)
+                time.sleep(0.01)
+                ttemp = time.time()
+                time.sleep(0.001)
+                print(time.time()-ttemp)
+            print(time.time()-tstart)
+            self.active = False
+
+        print('finished')
+        self.finished.emit()
+
+
+
