@@ -47,7 +47,7 @@ class MinionConfocalNavigation(QWidget):
         self.ymin = 0.0
         self.ymax = 100.0
         self.ypos = 50.0
-        self.resolution = 100
+        self.resolution = 20
         self.colormin = 0
         self.colormax = 100
         self.mapdata = np.zeros((self.resolution, self.resolution))
@@ -67,7 +67,7 @@ class MinionConfocalNavigation(QWidget):
         self.mapaxes = self.mapfigure.add_subplot(111)
         self.mapaxes.hold(False)
 
-        self.mapdata = np.random.rand(100, 100)*100  #delete later when datastream works
+        # self.mapdata = np.random.rand(100, 100)*100  #delete later when datastream works
 
         self.map = self.mapaxes.matshow(self.mapdata, origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
         self.colorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.rainbow)
@@ -308,15 +308,26 @@ class MinionConfocalNavigation(QWidget):
         self.mapcanvas.draw()
 
     def mapstartclicked(self):
+        self.mapdata = np.zeros((self.resolution, self.resolution))
         self.objThread = QThread(self)
         self.obj = MinionColfocalMapDataAquisition()
         self.obj.moveToThread(self.objThread)
         self.obj.finished.connect(self.objThread.quit)
-        self.objThread.started.connect(self.obj.longrun)
+        self.objThread.started.connect(lambda: self.obj.longrun(self.resolution))
         self.objThread.finished.connect(self.objThread.quit)
+        self.obj.update.connect(self.updatemap)
         self.objThread.start()
         print('done')
 
+    def updatemap(self, value, rest, row, col):
+        self.mapdata[row, col] += value
+        if rest == 0:
+            print('plot')
+            start = time.time()
+            self.map.set_data(self.mapdata)
+            self.mapcanvas.draw()
+            self.colorautoscalepress()
+            print(time.time()-start)
 
     def mapstopclicked(self):
         self.obj.active=False
@@ -356,8 +367,9 @@ class MinionConfocalTilt(QWidget):
 
 class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
+    update = pyqtSignal(int, int, int, int)
 
-    def longrun(self):
+    def longrun(self, resolution):
         self.active = True
         while self.active:
             settletimer = QTimer()
@@ -367,13 +379,26 @@ class MinionColfocalMapDataAquisition(QObject):
             counttimer.deleteLater()
             tstart = time.time()
             num=0
-            for i in range(1000):
+            for i in range(resolution*resolution):
                 num += 1
-                print(num)
-                time.sleep(0.01)
-                ttemp = time.time()
-                time.sleep(0.001)
-                print(time.time()-ttemp)
+                # print(num)
+                time.sleep(0.005)
+                # ttemp = time.time()
+                time.sleep(0.005)
+                # print(time.time()-ttemp)
+                value = np.random.randint(1, 1000)
+
+                rest = num % resolution
+                if rest == 0:
+                    col = int(num/resolution)-1
+                    row = resolution-1
+                else:
+                    col = int(num/resolution)
+                    row = ((num/resolution)-col)*resolution-1
+                # print(row, col, rest)
+                self.update.emit(value, rest, row, col)
+                if rest == 0:
+                    time.sleep(0.2)
             print(time.time()-tstart)
             self.active = False
 
