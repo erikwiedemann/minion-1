@@ -47,7 +47,7 @@ class MinionConfocalNavigation(QWidget):
         self.ymin = 0.0
         self.ymax = 100.0
         self.ypos = 50.0
-        self.resolution = 20
+        self.resolution = 10
         self.colormin = 0
         self.colormax = 100
         self.mapdata = np.zeros((self.resolution, self.resolution))
@@ -323,11 +323,11 @@ class MinionConfocalNavigation(QWidget):
         self.mapdata[row, col] += value
         if rest == 0:
             print('plot')
-            start = time.time()
-            self.map.set_data(self.mapdata)
-            self.mapcanvas.draw()
-            self.colorautoscalepress()
-            print(time.time()-start)
+            # start = time.time()
+            # self.map.set_data(self.mapdata)
+            # self.mapcanvas.draw()
+            # self.colorautoscalepress()
+            # print(time.time()-start)
 
     def mapstopclicked(self):
         self.obj.active=False
@@ -381,11 +381,12 @@ class MinionColfocalMapDataAquisition(QObject):
             num=0
             for i in range(resolution*resolution):
                 num += 1
+                ttemp = time.time()
                 # print(num)
+                time.sleep(0.001)
+
                 time.sleep(0.005)
-                # ttemp = time.time()
-                time.sleep(0.005)
-                # print(time.time()-ttemp)
+
                 value = np.random.randint(1, 1000)
 
                 rest = num % resolution
@@ -395,15 +396,12 @@ class MinionColfocalMapDataAquisition(QObject):
                 else:
                     col = int(num/resolution)
                     row = ((num/resolution)-col)*resolution-1
-                # print(row, col, rest)
+
                 self.update.emit(value, rest, row, col)
-                if rest == 0:
-                    time.sleep(0.2)
+                print(time.time()-ttemp)
             print(time.time()-tstart)
             self.active = False
 
         print('thread done')
         self.finished.emit()
-
-
 
