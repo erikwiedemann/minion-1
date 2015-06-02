@@ -377,7 +377,7 @@ class MinionColfocalMapDataAquisition(QObject):
             print(time.time()-tstart)
             self.active = False
 
-        print('finished')
+        print('thread done')
         self.finished.emit()
 
 
