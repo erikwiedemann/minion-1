@@ -309,16 +309,16 @@ class MinionConfocalNavigation(QWidget):
 
     def mapstartclicked(self):
 
-        print("[%s] clicked start" % QThread.currentThread().objectName())
+        print("[%s] start scan" % QThread.currentThread().objectName())
         self.aquisition = MinionColfocalMapDataAquisition(self.resolution)
         self.confocalthread = QThread(self, objectName='workerThread')
         self.aquisition.moveToThread(self.confocalthread)
         self.aquisition.finished.connect(self.confocalthread.quit)
 
         self.confocalthread.started.connect(self.aquisition.longrun)
+        self.confocalthread.finished.connect(self.confocalthread.deleteLater)
         self.aquisition.update.connect(self.updatemap)
         self.confocalthread.start()
-        print('done')
 
     @pyqtSlot(np.ndarray, int)
     def updatemap(self, mapdataupdate, col):
@@ -332,17 +332,16 @@ class MinionConfocalNavigation(QWidget):
         # print(time.time()-start)
 
     def mapstopclicked(self):
-        print('STOOOOP')
-        self.aquisition.active=False
+        print('STOOOOOOP')
+        self.aquisition.stop()
         self.confocalthread.quit()
+
 
     def mapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
         np.savetxt(str(os.getcwd())+'/data/'+str(self.filename)+'.txt', self.mapdata)
         self.mapfigure.savefig(str(os.getcwd())+'/data/'+str(self.filename)+'.pdf')
         print('file saved to data folder')
-
-
 
 
 
@@ -376,25 +375,32 @@ class MinionColfocalMapDataAquisition(QObject):
     def __init__(self, resolution):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution = resolution
+        self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
+
+    def stop(self):
+        print('stop')
+        self._isRunning = False
 
 
     def longrun(self):
         resolution=self.resolution
-        self.active = True
         mapdataupdate = np.zeros((resolution, resolution))
         print("[%s] start longrun" % QThread.currentThread().objectName())
-        while self.active:
+        # while self._isRunning is True:
 
-            settletimer = QTimer()
-            settletimer.deleteLater()
+        settletimer = QTimer()
+        settletimer.deleteLater()
 
-            counttimer = QTimer()
-            counttimer.deleteLater()
-            tstart = time.time()
-            num=0
-            for i in range(resolution*resolution):
-                print("[%s]  loop" % QThread.currentThread().objectName())
+        counttimer = QTimer()
+        counttimer.deleteLater()
+        tstart = time.time()
+        num=0
+        for i in range(resolution*resolution):
+            if not self._isRunning:
+                self.finished.emit()
+            else:
+                # print("[%s]  loop" % QThread.currentThread().objectName())
                 num += 1
                 ttemp = time.time()
                 # print(num)
@@ -416,9 +422,7 @@ class MinionColfocalMapDataAquisition(QObject):
                 if rest == 0:
                     self.update.emit(mapdataupdate, col)
                 # print(time.time()-ttemp)
-            print(time.time()-tstart)
-
-            self.active = False
+        print(time.time()-tstart)
 
         print('thread done')
         self.finished.emit()
