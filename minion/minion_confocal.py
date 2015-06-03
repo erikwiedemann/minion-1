@@ -401,27 +401,27 @@ class MinionColfocalMapDataAquisition(QObject):
                 self.finished.emit()
             else:
                 # print("[%s]  loop" % QThread.currentThread().objectName())
-                num += 1
-                ttemp = time.time()
-                # print(num)
+                num += 1  # TODO - replace with usage of i
                 time.sleep(0.001)
 
                 time.sleep(0.005)
 
-                value = np.random.randint(1, 1000)
+                self.value = np.random.randint(1, 1000)
 
-                rest = num % resolution
-                if rest == 0:
-                    col = int(num/resolution)-1
-                    row = resolution-1
+                self.rest = num % resolution
+                if self.rest == 0:
+                    self.col = int(num/resolution)-1
+                    self.row = resolution-1
                 else:
-                    col = int(num/resolution)
-                    row = ((num/resolution)-col)*resolution-1
+                    self.col = int(num/resolution)
+                    self.row = ((num/resolution)-self.col)*resolution-1
 
-                mapdataupdate[row, col] += value
-                if rest == 0:
-                    self.update.emit(mapdataupdate, col)
+                mapdataupdate[self.row, self.col] += self.value
+                if self.rest == 0:
+                    self.update.emit(mapdataupdate, self.col)
                 # print(time.time()-ttemp)
+        self.update.emit(mapdataupdate, self.col)
+
         print(time.time()-tstart)
 
         print('thread done')
