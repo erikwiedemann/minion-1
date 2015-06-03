@@ -87,6 +87,7 @@ def build_minion_main_window():
     app = QApplication(sys.argv)
     app.setStyle('plastique')
     print('\tbuilding MinionMainWindow')
+    QThread.currentThread().setObjectName('mainThread')
     minion_main = MinionMainWindow()
     sys.exit(app.exec_())
 

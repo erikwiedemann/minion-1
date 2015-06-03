@@ -47,7 +47,7 @@ class MinionConfocalNavigation(QWidget):
         self.ymin = 0.0
         self.ymax = 100.0
         self.ypos = 50.0
-        self.resolution = 10
+        self.resolution = 20
         self.colormin = 0
         self.colormax = 100
         self.mapdata = np.zeros((self.resolution, self.resolution))
@@ -308,30 +308,33 @@ class MinionConfocalNavigation(QWidget):
         self.mapcanvas.draw()
 
     def mapstartclicked(self):
-        self.mapdata = np.zeros((self.resolution, self.resolution))
-        self.objThread = QThread(self)
-        self.obj = MinionColfocalMapDataAquisition()
-        self.obj.moveToThread(self.objThread)
-        self.obj.finished.connect(self.objThread.quit)
-        self.objThread.started.connect(lambda: self.obj.longrun(self.resolution))
-        self.objThread.finished.connect(self.objThread.quit)
-        self.obj.update.connect(self.updatemap)
-        self.objThread.start()
+
+        print("[%s] clicked start" % QThread.currentThread().objectName())
+        self.aquisition = MinionColfocalMapDataAquisition(self.resolution)
+        self.confocalthread = QThread(self, objectName='workerThread')
+        self.aquisition.moveToThread(self.confocalthread)
+        self.aquisition.finished.connect(self.confocalthread.quit)
+
+        self.confocalthread.started.connect(self.aquisition.longrun)
+        self.aquisition.update.connect(self.updatemap)
+        self.confocalthread.start()
         print('done')
 
-    def updatemap(self, value, rest, row, col):
-        self.mapdata[row, col] += value
-        if rest == 0:
-            print('plot')
-            # start = time.time()
-            # self.map.set_data(self.mapdata)
-            # self.mapcanvas.draw()
-            # self.colorautoscalepress()
-            # print(time.time()-start)
+    @pyqtSlot(np.ndarray, int)
+    def updatemap(self, mapdataupdate, col):
+        print("[%s] update" % QThread.currentThread().objectName())
+        self.mapdata = mapdataupdate
+        # print(col)
+        # start = time.time()
+        self.map.set_data(self.mapdata)
+        self.mapcanvas.draw()
+        self.colorautoscalepress()
+        # print(time.time()-start)
 
     def mapstopclicked(self):
-        self.obj.active=False
-        self.objThread.quit()
+        print('STOOOOP')
+        self.aquisition.active=False
+        self.confocalthread.quit()
 
     def mapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
@@ -366,12 +369,23 @@ class MinionConfocalTilt(QWidget):
 
 
 class MinionColfocalMapDataAquisition(QObject):
+    started = pyqtSignal()
     finished = pyqtSignal()
-    update = pyqtSignal(int, int, int, int)
+    update = pyqtSignal(np.ndarray, int)
 
-    def longrun(self, resolution):
+    def __init__(self, resolution):
+        super(MinionColfocalMapDataAquisition, self).__init__()
+        self.resolution = resolution
+        print("[%s] create worker" % QThread.currentThread().objectName())
+
+
+    def longrun(self):
+        resolution=self.resolution
         self.active = True
+        mapdataupdate = np.zeros((resolution, resolution))
+        print("[%s] start longrun" % QThread.currentThread().objectName())
         while self.active:
+
             settletimer = QTimer()
             settletimer.deleteLater()
 
@@ -380,6 +394,7 @@ class MinionColfocalMapDataAquisition(QObject):
             tstart = time.time()
             num=0
             for i in range(resolution*resolution):
+                print("[%s]  loop" % QThread.currentThread().objectName())
                 num += 1
                 ttemp = time.time()
                 # print(num)
@@ -397,9 +412,12 @@ class MinionColfocalMapDataAquisition(QObject):
                     col = int(num/resolution)
                     row = ((num/resolution)-col)*resolution-1
 
-                self.update.emit(value, rest, row, col)
-                print(time.time()-ttemp)
+                mapdataupdate[row, col] += value
+                if rest == 0:
+                    self.update.emit(mapdataupdate, col)
+                # print(time.time()-ttemp)
             print(time.time()-tstart)
+
             self.active = False
 
         print('thread done')
