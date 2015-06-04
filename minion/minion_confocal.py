@@ -378,51 +378,32 @@ class MinionColfocalMapDataAquisition(QObject):
         self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
 
-    def stop(self):
-        print('stop')
-        self._isRunning = False
-
-
     def longrun(self):
         resolution=self.resolution
         mapdataupdate = np.zeros((resolution, resolution))
-        print("[%s] start longrun" % QThread.currentThread().objectName())
-        # while self._isRunning is True:
+        print("[%s] start scan" % QThread.currentThread().objectName())
 
-        settletimer = QTimer()
-        settletimer.deleteLater()
-
-        counttimer = QTimer()
-        counttimer.deleteLater()
         tstart = time.time()
-        num=0
-        for i in range(resolution*resolution):
+        for i in np.ndindex((resolution, resolution)):
             if not self._isRunning:
                 self.finished.emit()
             else:
                 # print("[%s]  loop" % QThread.currentThread().objectName())
-                num += 1  # TODO - replace with usage of i
-                time.sleep(0.001)
+                time.sleep(0.001)  # wait
 
-                time.sleep(0.005)
+                time.sleep(0.005)  # measure
 
                 self.value = np.random.randint(1, 1000)
 
-                self.rest = num % resolution
-                if self.rest == 0:
-                    self.col = int(num/resolution)-1
-                    self.row = resolution-1
-                else:
-                    self.col = int(num/resolution)
-                    self.row = ((num/resolution)-self.col)*resolution-1
-
-                mapdataupdate[self.row, self.col] += self.value
-                if self.rest == 0:
-                    self.update.emit(mapdataupdate, self.col)
+                mapdataupdate[i] += self.value
+                if i[1] == resolution-1:
+                    print('UPDATE', i[0])
+                    self.update.emit(mapdataupdate, i[0])
                 # print(time.time()-ttemp)
-        self.update.emit(mapdataupdate, self.col)
 
-        print(time.time()-tstart)
+        self.update.emit(mapdataupdate, i[0])
+
+        print('total time needed:', time.time()-tstart)
 
         print('thread done')
         self.finished.emit()
