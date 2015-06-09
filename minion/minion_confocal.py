@@ -19,30 +19,19 @@ from matplotlib.figure import Figure
 class MinionConfocalUi(QWidget):
     def __init__(self, parent=None):
         super(MinionConfocalUi, self).__init__(parent)
-        global settlingtime
-        settlingtime = 0.05
-        print(settlingtime)
-        self.confocaltabs = QTabWidget()
-        self.navigationtab = MinionConfocalNavigation()
-        self.navigationtab.uisetup()
-        self.tilttab = MinionConfocalTilt()
-        self.settingtab = MinionConfocalSetting()
-        self.settingtab.uisetup()
-        self.navigationtab.connectsettings()
-
-        self.confocaltabs.addTab(self.navigationtab, 'Navigation')
-        self.confocaltabs.addTab(self.tilttab, 'Tilt')
-        self.confocaltabs.addTab(self.settingtab, 'Settings')
+        self.confocal = MinionConfocalNavigation()
 
         # self.setFixedSize(650, 800)
-        confocallayout = QGridLayout()
-        confocallayout.addWidget(self.confocaltabs)
-        self.setLayout(confocallayout)
+        self.confocallayout = QGridLayout()
+        self.confocallayout.addWidget(self.confocal)
+        self.setLayout(self.confocallayout)
 
 
 class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
+
+        self.uisetup()
 
     def uisetup(self):
         # set and get initial variables
@@ -59,6 +48,8 @@ class MinionConfocalNavigation(QWidget):
         self.mapdata = np.zeros((self.resolution, self.resolution))
         self.colormin = self.mapdata.min()
         self.colormax = self.mapdata.max()
+        self.settlingtime = 0.001
+        self.counttime = 0.005
 
         # create map canvas
         self.mapfigure = Figure()
@@ -183,6 +174,20 @@ class MinionConfocalNavigation(QWidget):
         self.mapsave = QPushButton('save scan')
         self.mapsave.clicked.connect(self.mapsaveclicked)
 
+
+        # count and settling time
+        self.settlingtimelabel = QLabel('Settling Time [ms]')
+        self.settlingtimetext = QDoubleSpinBox()
+        self.settlingtimetext.setRange(0, 1000)
+        self.settlingtimetext.setValue(int(self.settlingtime*1000))
+        self.settlingtimetext.editingFinished.connect(self.timetextchanged)
+
+        self.counttimelabel = QLabel('Count Time [ms]')
+        self.counttimetext = QDoubleSpinBox()
+        self.counttimetext.setRange(0, 1000)
+        self.counttimetext.setValue(int(self.counttime*1000))
+        self.counttimetext.editingFinished.connect(self.timetextchanged)
+
         # create horizontal line widgets
         self.hline = QFrame()
         self.hline.setFrameShape(QFrame.HLine)
@@ -230,6 +235,11 @@ class MinionConfocalNavigation(QWidget):
         confocal_layout.addWidget(self.scanprogresslabel, 8, 4, 1, 2)
         confocal_layout.addWidget(self.mapsavenametext, 8, 8, 1, 2)
         confocal_layout.addWidget(self.mapsave, 9, 8, 1, 2)
+
+        confocal_layout.addWidget(self.settlingtimelabel, 0, 10, 1, 1)
+        confocal_layout.addWidget(self.settlingtimetext, 0, 11, 1, 1)
+        confocal_layout.addWidget(self.counttimelabel, 1, 10, 1, 1)
+        confocal_layout.addWidget(self.counttimetext, 1, 11, 1, 1)
 
         confocal_layout.setSpacing(2)
         self.setLayout(confocal_layout)
@@ -314,9 +324,7 @@ class MinionConfocalNavigation(QWidget):
         self.scanprogress.setRange(0, self.resolution-1)
         self.scanprogress.setValue(0)
 
-        settlingtime = 0.001
-        counttime = 0.005
-        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, settlingtime, counttime, self.xmin, self.xmax, self. ymin, self.ymax)
+        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax)
         self.confocalthread = QThread(self, objectName='workerThread')
         self.aquisition.moveToThread(self.confocalthread)
         self.aquisition.finished.connect(self.confocalthread.quit)
@@ -325,11 +333,6 @@ class MinionConfocalNavigation(QWidget):
         self.confocalthread.finished.connect(self.confocalthread.deleteLater)
         self.aquisition.update.connect(self.updatemap)
         self.confocalthread.start()
-
-    def connectsettings(self):
-        print('connect settings')
-        self.scansettings = MinionConfocalSetting()
-        self.scansettings.settingschanged.connect(self.updatesettings)
 
     @pyqtSlot(float, float)
     def updatesettings(self):
@@ -352,67 +355,16 @@ class MinionConfocalNavigation(QWidget):
         self.aquisition.stop()
         self.confocalthread.quit()
 
-
     def mapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
         np.savetxt(str(os.getcwd())+'/data/'+str(self.filename)+'.txt', self.mapdata)
         self.mapfigure.savefig(str(os.getcwd())+'/data/'+str(self.filename)+'.pdf')
         print('file saved to data folder')
 
-
-
-class MinionConfocalSetting(QWidget):
-    settingschanged = pyqtSignal(float, float)
-
-    def __init__(self, parent=None):
-        super(MinionConfocalSetting, self).__init__(parent)
-
-    def uisetup(self):
-        # create elements
-        self.settlingtimelabel = QLabel('Settling Time [ms]')
-        self.settlingtimetext = QDoubleSpinBox()
-        self.settlingtimetext.setRange(0, 1000)
-        self.settlingtimetext.setValue(int(1*1000))
-        self.settlingtimetext.editingFinished.connect(self.timetextchanged)
-
-        self.counttimelabel = QLabel('Count Time [ms]')
-        self.counttimetext = QDoubleSpinBox()
-        self.counttimetext.setRange(0, 1000)
-        global counttime
-        self.counttimetext.setValue(int(5*1000))
-        self.counttimetext.editingFinished.connect(self.timetextchanged)
-
-        # navigationtab = MinionConfocalNavigation(self.settlingtime, self.counttime)
-        # self.settlingtimetext.editingFinished.connect(navigationtab.updatesettings)
-        # self.counttimetext.editingFinished.connect(navigationtab.updatesettings)
-
-        # create layout
-        confocalsetting_layout = QGridLayout()
-        confocalsetting_layout.addWidget(self.settlingtimelabel, 0, 0)
-        confocalsetting_layout.addWidget(self.settlingtimetext, 0, 1)
-        confocalsetting_layout.addWidget(self.counttimelabel, 1, 0)
-        confocalsetting_layout.addWidget(self.counttimetext, 1, 1)
-        confocalsetting_layout.setSpacing(1)
-        self.setLayout(confocalsetting_layout)
-
     def timetextchanged(self):
-        settlingtime = self.settlingtimetext.value()/1000
-        counttime = self.counttimetext.value()/1000
-        print('changed:', settlingtime, counttime)
-        # self.settingschanged.emit(.settlingtime, self.counttime)
-        # MinionConfocalNavigation(self.settlingtime, self.counttime)
-
-
-
-class MinionConfocalTilt(QWidget):
-    def __init__(self, parent=None):
-        super(MinionConfocalTilt, self).__init__(parent)
-
-        self.open_confocal = QPushButton('placeholder')
-        confocalsetting_layout = QGridLayout()
-        confocalsetting_layout.addWidget(self.open_confocal, 0, 0)
-        # confocalsetting_layout.setSpacing(1)
-        self.setLayout(confocalsetting_layout)
+        self.settlingtime = self.settlingtimetext.value()/1000
+        self.counttime = self.counttimetext.value()/1000
+        print('changed:', self.settlingtime, self.counttime)
 
 
 class MinionColfocalMapDataAquisition(QObject):
