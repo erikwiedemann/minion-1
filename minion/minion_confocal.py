@@ -30,10 +30,6 @@ class MinionConfocalUi(QWidget):
 class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
-
-        self.uisetup()
-
-    def uisetup(self):
         # set and get initial variables
         # TODO - get these values from the hardware
         self.xmin = 0.0
@@ -50,7 +46,9 @@ class MinionConfocalNavigation(QWidget):
         self.colormax = self.mapdata.max()
         self.settlingtime = 0.001
         self.counttime = 0.005
+        self.uisetup()
 
+    def uisetup(self):
         # create map canvas
         self.mapfigure = Figure()
         self.mapcanvas = FigureCanvas(self.mapfigure)
