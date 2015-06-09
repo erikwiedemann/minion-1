@@ -9,6 +9,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import numpy as np
 import matplotlib as mpl
+import serial
 
 mpl.use("Qt5Agg")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -30,6 +31,9 @@ class MinionConfocalUi(QWidget):
 class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
+        # initialize hardware
+        self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+
         # set and get initial variables
         # TODO - get these values from the hardware
         self.xmin = 0.0
@@ -46,7 +50,19 @@ class MinionConfocalNavigation(QWidget):
         self.colormax = self.mapdata.max()
         self.settlingtime = 0.001
         self.counttime = 0.005
+        self.laserpowernew = 10.0  # TODO - set to current laser power
+        self.laserpowermin = 0.001
+        self.laserpowermax = 200.
+        self.laserpowertimer = QTimer()
+        self.laserpowertimer.timeout.connect(self.checklaserpower)
+        self.laserpowertimer.setInterval(1000)
+        self.laserpowertimer.start()
         self.uisetup()
+
+    def __del__(self):
+        self.laserpowertimer.stop()
+        self.laser.close()
+        print(self.laser)
 
     def uisetup(self):
         # create map canvas
@@ -172,7 +188,6 @@ class MinionConfocalNavigation(QWidget):
         self.mapsave = QPushButton('save scan')
         self.mapsave.clicked.connect(self.mapsaveclicked)
 
-
         # count and settling time
         self.settlingtimelabel = QLabel('Settling Time [ms]')
         self.settlingtimetext = QDoubleSpinBox()
@@ -185,6 +200,18 @@ class MinionConfocalNavigation(QWidget):
         self.counttimetext.setRange(0, 1000)
         self.counttimetext.setValue(int(self.counttime*1000))
         self.counttimetext.editingFinished.connect(self.timetextchanged)
+
+        # laser control widgets
+        self.laserpowerinfolabel = QLabel('current power [mW]:')
+        self.laserpowerinfo = QDoubleSpinBox()
+        self.laserpowerinfo.setReadOnly(True)
+
+        self.laserpowersetlabel = QLabel('set power [mW]:')
+        self.laserpowerset = QDoubleSpinBox()
+        self.laserpowerset.setRange(self.laserpowermin, self.laserpowermax)
+        self.laserpowerset.setValue(self.laserpowernew)
+        self.laserpowerset.editingFinished.connect(self.setlaserpower)
+
 
         # create horizontal line widgets
         self.hline = QFrame()
@@ -234,10 +261,15 @@ class MinionConfocalNavigation(QWidget):
         confocal_layout.addWidget(self.mapsavenametext, 8, 8, 1, 2)
         confocal_layout.addWidget(self.mapsave, 9, 8, 1, 2)
 
-        confocal_layout.addWidget(self.settlingtimelabel, 0, 10, 1, 1)
-        confocal_layout.addWidget(self.settlingtimetext, 0, 11, 1, 1)
-        confocal_layout.addWidget(self.counttimelabel, 1, 10, 1, 1)
-        confocal_layout.addWidget(self.counttimetext, 1, 11, 1, 1)
+        confocal_layout.addWidget(self.settlingtimelabel, 2, 10, 1, 1)
+        confocal_layout.addWidget(self.settlingtimetext, 2, 11, 1, 1)
+        confocal_layout.addWidget(self.counttimelabel, 3, 10, 1, 1)
+        confocal_layout.addWidget(self.counttimetext, 3, 11, 1, 1)
+
+        confocal_layout.addWidget(self.laserpowerinfolabel, 4, 10, 1, 1)
+        confocal_layout.addWidget(self.laserpowerinfo, 4, 11, 1, 1)
+        confocal_layout.addWidget(self.laserpowersetlabel, 5, 10, 1, 1)
+        confocal_layout.addWidget(self.laserpowerset, 5, 11, 1, 1)
 
         confocal_layout.setSpacing(2)
         self.setLayout(confocal_layout)
@@ -363,6 +395,21 @@ class MinionConfocalNavigation(QWidget):
         self.settlingtime = self.settlingtimetext.value()/1000
         self.counttime = self.counttimetext.value()/1000
         print('changed:', self.settlingtime, self.counttime)
+
+    def checklaserpower(self):
+        self.laser.write(b'POWER?'+b'\r')
+        answer = self.laser.readline().rstrip()[:-2]
+        if not answer:
+            pass
+        else:
+            self.laserpower = float(answer)
+            self.laserpowerinfo.setValue(self.laserpower)
+
+    def setlaserpower(self):
+        self.laserpowernew = self.laserpowerset.value()
+        cmd = 'POWER=%d' % self.laserpowernew
+        self.laser.write(bytes(cmd + '\r', 'UTF-8'))
+        print('set new laserpower to [mW]', self.laserpowernew)
 
 
 class MinionColfocalMapDataAquisition(QObject):
