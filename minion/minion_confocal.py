@@ -31,8 +31,9 @@ class MinionConfocalUi(QWidget):
 class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
-        # initialize hardware
+        # initialize hardware / if hardware not there, do nothing
         self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+        self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 
         # set and get initial variables
         # TODO - get these values from the hardware
@@ -194,7 +195,6 @@ class MinionConfocalNavigation(QWidget):
         self.settlingtimetext.setRange(0, 1000)
         self.settlingtimetext.setValue(int(self.settlingtime*1000))
         self.settlingtimetext.editingFinished.connect(self.timetextchanged)
-
         self.counttimelabel = QLabel('Count Time [ms]')
         self.counttimetext = QDoubleSpinBox()
         self.counttimetext.setRange(0, 1000)
@@ -211,7 +211,6 @@ class MinionConfocalNavigation(QWidget):
         self.laserpowerset.setRange(self.laserpowermin, self.laserpowermax)
         self.laserpowerset.setValue(self.laserpowernew)
         self.laserpowerset.editingFinished.connect(self.setlaserpower)
-
 
         # create horizontal line widgets
         self.hline = QFrame()
