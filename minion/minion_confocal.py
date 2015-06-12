@@ -43,6 +43,12 @@ class MinionConfocalNavigation(QWidget):
 
         if self.hardware_counter is True:
             self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.fpgaclock = 80*10**6  # in Hz
+            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
+            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
+            self.counter.write(b't')  # check counttime
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')
+            print('\t fpga counttime:', self.check_counttime)
         else:
             print('counter not found')
 
@@ -365,7 +371,7 @@ class MinionConfocalNavigation(QWidget):
         self.scanprogress.setRange(0, self.resolution-1)
         self.scanprogress.setValue(0)
 
-        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax)
+        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.hardware_counter)
         self.confocalthread = QThread(self, objectName='workerThread')
         self.aquisition.moveToThread(self.confocalthread)
         self.aquisition.finished.connect(self.confocalthread.quit)
@@ -405,6 +411,13 @@ class MinionConfocalNavigation(QWidget):
     def timetextchanged(self):
         self.settlingtime = self.settlingtimetext.value()/1000
         self.counttime = self.counttimetext.value()/1000
+        if self.hardware_counter is True:
+            self.fpgaclock = 80*10**6  # in Hz
+            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
+            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
+            self.counter.write(b't')  # check counttime
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')
+            print('\t fpga counttime:', self.check_counttime)
         print('changed:', self.settlingtime, self.counttime)
 
     def checklaserpower(self):
@@ -434,7 +447,7 @@ class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax):
+    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, hardware_counter):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution = resolution
         self.settlingtime = settlingtime
@@ -443,6 +456,7 @@ class MinionColfocalMapDataAquisition(QObject):
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
+        self.hardware_counter = hardware_counter
 
         self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
@@ -451,7 +465,6 @@ class MinionColfocalMapDataAquisition(QObject):
         self._isRunning=False
 
     def longrun(self):
-        # resolution = self.resolution
         mapdataupdate = np.zeros((self.resolution, self.resolution))
         print("[%s] start scan" % QThread.currentThread().objectName())
         print('resolution', self.resolution)
@@ -461,8 +474,7 @@ class MinionColfocalMapDataAquisition(QObject):
             if not self._isRunning:
                 self.finished.emit()
             else:
-                # print("[%s]  loop" % QThread.currentThread().objectName())
-                # print(self.settlingtime, self.counttime)
+
                 time.sleep(self.settlingtime)  # wait
 
                 time.sleep(self.counttime)  # measure
