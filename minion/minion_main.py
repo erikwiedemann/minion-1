@@ -48,8 +48,6 @@ class MinionMainWindow(QMainWindow):
             self.workspace.addDockWidget(startposition[i], self.dockWidget[i])
 
 
-
-
 class MinionModuleexplorerUi(QWidget):
     def __init__(self, parent=None):
         super(MinionModuleexplorerUi, self).__init__(parent)

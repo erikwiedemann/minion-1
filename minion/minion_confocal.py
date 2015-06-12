@@ -32,8 +32,19 @@ class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
         # initialize hardware / if hardware not there, do nothing
-        self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
-        self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+        import minion.minion_hardware_check
+        self.hardware_laser = False
+        self.hardware_counter = False
+
+        if self.hardware_laser is True:
+            self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+        else:
+            print('laser not found')
+
+        if self.hardware_counter is True:
+            self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+        else:
+            print('counter not found')
 
         # set and get initial variables
         # TODO - get these values from the hardware
@@ -62,8 +73,9 @@ class MinionConfocalNavigation(QWidget):
 
     def __del__(self):
         self.laserpowertimer.stop()
-        self.laser.close()
-        print(self.laser)
+        if self.hardware_laser is True:
+            self.laser.close()
+            print(self.laser)
 
     def uisetup(self):
         # create map canvas
@@ -364,7 +376,7 @@ class MinionConfocalNavigation(QWidget):
         self.confocalthread.start()
 
     @pyqtSlot(float, float)
-    def updatesettings(self):
+    def updatesettings(self):  # TODO - check if this is still needed
         print('update settings')
         print(self.settlingtime, self.counttime)
 
@@ -380,7 +392,7 @@ class MinionConfocalNavigation(QWidget):
         # print(time.time()-start)
 
     def mapstopclicked(self):
-        print('STOOOOOOP')
+        print('abort scan')
         self.aquisition.stop()
         self.confocalthread.quit()
 
@@ -396,19 +408,25 @@ class MinionConfocalNavigation(QWidget):
         print('changed:', self.settlingtime, self.counttime)
 
     def checklaserpower(self):
-        self.laser.write(b'POWER?'+b'\r')
-        answer = self.laser.readline().rstrip()[:-2]
-        if not answer:
-            pass
+        if self.hardware_laser is True:
+            self.laser.write(b'POWER?'+b'\r')
+            answer = self.laser.readline().rstrip()[:-2]
+            if not answer:
+                pass
+            else:
+                self.laserpower = float(answer)
+                self.laserpowerinfo.setValue(self.laserpower)
         else:
-            self.laserpower = float(answer)
-            self.laserpowerinfo.setValue(self.laserpower)
+            print('cannot check laserpower - no laser found')
 
     def setlaserpower(self):
-        self.laserpowernew = self.laserpowerset.value()
-        cmd = 'POWER=%d' % self.laserpowernew
-        self.laser.write(bytes(cmd + '\r', 'UTF-8'))
-        print('set new laserpower to [mW]', self.laserpowernew)
+        if self.hardware_laser is True:
+            self.laserpowernew = self.laserpowerset.value()
+            cmd = 'POWER=%d' % self.laserpowernew
+            self.laser.write(bytes(cmd + '\r', 'UTF-8'))
+            print('set new laserpower to [mW]', self.laserpowernew)
+        else:
+            print('cannot change laserpower - no laser found')
 
 
 class MinionColfocalMapDataAquisition(QObject):
