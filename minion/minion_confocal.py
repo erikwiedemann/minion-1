@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import *
 import numpy as np
 import matplotlib as mpl
 import serial
+from ctypes import *
 
 mpl.use("Qt5Agg")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -35,6 +36,7 @@ class MinionConfocalNavigation(QWidget):
         import minion.minion_hardware_check
         self.hardware_laser = False
         self.hardware_counter = False
+        self.hardware_stage = True
 
         if self.hardware_laser is True:
             self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
@@ -51,6 +53,10 @@ class MinionConfocalNavigation(QWidget):
             print('\t fpga counttime:', self.check_counttime)
         else:
             print('counter not found')
+
+        # if self.hardware_stage is True:
+        #     CDLL('libstdc++.so.6', mode=RTLD_GLOBAL)
+        #     stagelib = CDLL('libmadlib.so', 1)
 
         # set and get initial variables
         # TODO - get these values from the hardware

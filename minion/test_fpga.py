@@ -8,14 +8,14 @@ counttime_bytes = (int(counttime*fpgaclock)).to_bytes(4, byteorder='little')
 counter.write(b'T'+counttime_bytes)
 counter.write(b't')
 dt_bytes = counter.read(4)
-dt = int.from_bytes(dt_bytes, byteorder='little')
+dt = int.from_bytes(dt_bytes, byteorder='little')/fpgaclock
+print(dt)
 for i in range(10):
     counter.write(b'C')
-    time.sleep(0.01)
+    time.sleep(counttime*1.1)
     answer = counter.read(8)
     apd1 = answer[:4]
     apd2 = answer[4:]
-    print(str(apd1)+'\t'+str(apd2))
     apd1_count = int.from_bytes(apd1, byteorder='little')
     apd2_count = int.from_bytes(apd2, byteorder='little')
     print(apd1_count, apd2_count)
