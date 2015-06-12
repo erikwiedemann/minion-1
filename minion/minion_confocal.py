@@ -82,6 +82,9 @@ class MinionConfocalNavigation(QWidget):
         if self.hardware_laser is True:
             self.laser.close()
             print(self.laser)
+        if self.hardware_counter is True:
+            self.counter.close()
+            print(self.counter)
 
     def uisetup(self):
         # create map canvas
