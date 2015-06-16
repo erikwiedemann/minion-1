@@ -34,9 +34,33 @@ class MinionConfocalNavigation(QWidget):
         super(MinionConfocalNavigation, self).__init__()
         # initialize hardware / if hardware not there, do nothing
         import minion.minion_hardware_check
-        self.hardware_laser = False
-        self.hardware_counter = False
+        self.hardware_laser = True
+        self.hardware_counter = True
         self.hardware_stage = True
+
+        # set and get initial variables
+        # TODO - get these values from the hardware
+        self.xmin = 5.
+        self.xmax = 10.0
+        self.xpos = 5.0
+        self.ymin = 5.0
+        self.ymax = 10.0
+        self.ypos = 5.0
+        self.resolution = 21
+        self.colormin = 0
+        self.colormax = 100
+        self.mapdata = np.zeros((self.resolution, self.resolution))
+        self.colormin = self.mapdata.min()
+        self.colormax = self.mapdata.max()
+        self.settlingtime = 0.02  # pos error about 10nm - 0.01 results in about 30 nm
+        self.counttime = 0.005
+        self.laserpowernew = 10.0  # TODO - set to current laser power
+        self.laserpowermin = 0.001
+        self.laserpowermax = 200.
+        self.laserpowertimer = QTimer()
+        self.laserpowertimer.timeout.connect(self.checklaserpower)
+        self.laserpowertimer.setInterval(1000)
+        self.laserpowertimer.start()
 
         if self.hardware_laser is True:
             self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
@@ -49,38 +73,26 @@ class MinionConfocalNavigation(QWidget):
             self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
             self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
             self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
             print('\t fpga counttime:', self.check_counttime)
         else:
             print('counter not found')
 
-        # if self.hardware_stage is True:
-        #     CDLL('libstdc++.so.6', mode=RTLD_GLOBAL)
-        #     stagelib = CDLL('libmadlib.so', 1)
+        if self.hardware_stage is True:
+            CDLL('libstdc++.so.6', mode=RTLD_GLOBAL)
+            self.stagelib = CDLL('libmadlib.so', 1)
+            self.stage = self.stagelib.MCL_InitHandleOrGetExisting()
+            if self.stage == 0:
+                self.hardware_stage = False
+                print('cound not get stage handle')
 
-        # set and get initial variables
-        # TODO - get these values from the hardware
-        self.xmin = 0.0
-        self.xmax = 100.0
-        self.xpos = 50.0
-        self.ymin = 0.0
-        self.ymax = 100.0
-        self.ypos = 50.0
-        self.resolution = 11
-        self.colormin = 0
-        self.colormax = 100
-        self.mapdata = np.zeros((self.resolution, self.resolution))
-        self.colormin = self.mapdata.min()
-        self.colormax = self.mapdata.max()
-        self.settlingtime = 0.001
-        self.counttime = 0.005
-        self.laserpowernew = 10.0  # TODO - set to current laser power
-        self.laserpowermin = 0.001
-        self.laserpowermax = 200.
-        self.laserpowertimer = QTimer()
-        self.laserpowertimer.timeout.connect(self.checklaserpower)
-        self.laserpowertimer.setInterval(1000)
-        self.laserpowertimer.start()
+            # define restypes that are not standard (INT)
+            self.stagelib.MCL_SingleReadN.restype = c_double
+            self.stagelib.MCL_MonitorN.restype = c_double
+            self.stagelib.MCL_GetCalibration.restype = c_double
+        else:
+            print('stage not found')
+
         self.uisetup()
 
     def __del__(self):
@@ -91,6 +103,9 @@ class MinionConfocalNavigation(QWidget):
         if self.hardware_counter is True:
             self.counter.close()
             print(self.counter)
+        if self.hardware_stage is True:
+            self.stagelib.MCL_ReleaseHandle(self.stage)
+            print('stage handle released')
 
     def uisetup(self):
         # create map canvas
@@ -377,10 +392,10 @@ class MinionConfocalNavigation(QWidget):
 
     def mapstartclicked(self):
         print("[%s] start scan" % QThread.currentThread().objectName())
-        self.scanprogress.setRange(0, self.resolution-1)
+        self.scanprogress.setRange(0, 100)
         self.scanprogress.setValue(0)
 
-        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.hardware_counter)
+        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.counter, self.stagelib, self.stage)
         self.confocalthread = QThread(self, objectName='workerThread')
         self.aquisition.moveToThread(self.confocalthread)
         self.aquisition.finished.connect(self.confocalthread.quit)
@@ -396,14 +411,15 @@ class MinionConfocalNavigation(QWidget):
         print(self.settlingtime, self.counttime)
 
     @pyqtSlot(np.ndarray, int)
-    def updatemap(self, mapdataupdate, col):
+    def updatemap(self, mapdataupdate, progress):
         # print("[%s] update" % QThread.currentThread().objectName())
-        self.mapdata = mapdataupdate
+        self.mapdata = mapdataupdate.T
         # start = time.time()
         self.map.set_data(self.mapdata)
+        self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])  # TODO - add 1/2 pixel on each side such that pixels are centered at their position
         self.mapcanvas.draw()
         self.colorautoscalepress()
-        self.scanprogress.setValue(col)
+        self.scanprogress.setValue(progress)
         # print(time.time()-start)
 
     def mapstopclicked(self):
@@ -453,11 +469,17 @@ class MinionConfocalNavigation(QWidget):
 
 
 class MinionColfocalMapDataAquisition(QObject):
+    """
+    Note that the stage is oriented such that the axis are
+    1 - Y
+    2 - X
+    3 - Z
+    """
     started = pyqtSignal()
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, hardware_counter):
+    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, counter, stagelib, stage):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution = resolution
         self.settlingtime = settlingtime
@@ -466,7 +488,37 @@ class MinionColfocalMapDataAquisition(QObject):
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
-        self.hardware_counter = hardware_counter
+        self.counter = counter
+        self.dimension = 2
+        self.stagelib = stagelib
+        self.stage = stage
+        self.poserrorx = 0.
+        self.poserrory = 0.
+        self.progress = 0.
+
+        if self.stage == 0:
+            print('cannot get a handle to the device')
+        else:
+            if self.dimension == 2:
+                mat = np.zeros((self.resolution, self.resolution, 2))  # preallocate
+
+                dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
+                dim2 = np.linspace(self.ymin, self.ymax, self.resolution)  # 2-y
+
+                mat[:, :, 0] = dim1
+                mat[1::2, :, 0] = np.fliplr(mat[1::2, :, 0])  # mirror the odd rows such that the scan goes like a snake
+                mat[:, :, 1] = dim2
+                mat[:, :, 1] = mat[:, :, 1].T
+
+                self.list2 = np.reshape(mat[:, :, 0], (1, self.resolution**2))  # Y list
+                self.list1 = np.reshape(mat[:, :, 1], (1, self.resolution**2))  # X list
+
+                indexmat = np.indices((self.resolution, self.resolution))  # 0-x, 1-y,
+                indexmat = np.swapaxes(indexmat, 0, 2)
+
+                indexmat[1::2, :, :] = np.fliplr(indexmat[1::2, :, :])
+                # indexmat = np.flipud(indexmat)
+                self.indexlist = indexmat.reshape((1, self.resolution**2, 2))
 
         self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
@@ -480,26 +532,45 @@ class MinionColfocalMapDataAquisition(QObject):
         print('resolution', self.resolution)
 
         tstart = time.time()
-        for i in np.ndindex((self.resolution, self.resolution)):
+        # MOVE TO START POSITION
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xmin), 1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ymin), 2, self.stage)
+        time.sleep(0.5)
+
+        for i in range(0, self.resolution**2):
             if not self._isRunning:
                 self.finished.emit()
             else:
-
+                # MOVE
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), 1, self.stage)
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), 2, self.stage)
                 time.sleep(self.settlingtime)  # wait
+                # CHECK POS
+                pos1 = self.stagelib.MCL_SingleReadN(1, self.stage)
+                pos2 = self.stagelib.MCL_SingleReadN(2, self.stage)
+                self.poserrory += (self.list1[0, i] - pos1)
+                self.poserrorx += (self.list2[0, i] - pos2)
 
-                time.sleep(self.counttime)  # measure
+                # COUNT
+                self.counter.write(b'C')
+                time.sleep(self.counttime*1.1)
+                answer = self.counter.read(8)
+                apd1 = answer[:4]
+                apd2 = answer[4:]
+                apd1_count = int.from_bytes(apd1, byteorder='little')
+                apd2_count = int.from_bytes(apd2, byteorder='little')
+                mapdataupdate[self.indexlist[0, i, 0], self.indexlist[0, i, 1]] = apd1_count + apd2_count
 
-                self.value = np.random.randint(1, 1000)
-
-                mapdataupdate[i] += self.value
-                if i[1] == self.resolution-1:
-                    self.update.emit(mapdataupdate, i[0])
+                if i % self.resolution == 0:
+                    self.progress = int(100*i/(self.resolution**2))
+                    self.update.emit(mapdataupdate, self.progress)
                 # print(time.time()-ttemp)
 
-        self.update.emit(mapdataupdate, i[0])
+        self.update.emit(mapdataupdate, 100)
 
         print('total time needed:', time.time()-tstart)
-
+        print('average position error (X):', self.poserrorx/(self.resolution**2))
+        print('average position error (Y):', self.poserrory/(self.resolution**2))
         print('thread done')
         self.finished.emit()
 
