@@ -66,7 +66,7 @@ class MinionConfocalNavigation(QWidget):
         self.ymin = 0.0
         self.ymax = 100.0
         self.ypos = 50.0
-        self.resolution = 20
+        self.resolution = 11
         self.colormin = 0
         self.colormax = 100
         self.mapdata = np.zeros((self.resolution, self.resolution))
@@ -407,6 +407,7 @@ class MinionConfocalNavigation(QWidget):
         # print(time.time()-start)
 
     def mapstopclicked(self):
+        # TODO - check if thread is running before quitting
         print('abort scan')
         self.aquisition.stop()
         self.confocalthread.quit()
