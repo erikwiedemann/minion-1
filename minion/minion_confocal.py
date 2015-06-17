@@ -34,21 +34,20 @@ class MinionConfocalNavigation(QWidget):
         super(MinionConfocalNavigation, self).__init__()
         # initialize hardware / if hardware not there, do nothing
         import minion.minion_hardware_check
-        self.hardware_laser = True
-        self.hardware_counter = True
-        self.hardware_stage = True
+        self.hardware_laser = False
+        self.hardware_counter = False
+        self.hardware_stage = False
 
-        # set and get initial variables
-        # TODO - get these values from the hardware
-        self.xmin = 5.
+        # set backup initial variables
+        self.xmin = 5.0
         self.xmax = 10.0
         self.xpos = 5.0
         self.ymin = 5.0
         self.ymax = 10.0
         self.ypos = 5.0
-        self.zmin = 5.0
+        self.zmin = 0.0
         self.zmax = 50.0
-        self.zpos = 36.0
+        self.zpos = 25.0
 
         self.resolution = 21
         self.colormin = 0
@@ -94,11 +93,30 @@ class MinionConfocalNavigation(QWidget):
             self.stagelib.MCL_SingleReadN.restype = c_double
             self.stagelib.MCL_MonitorN.restype = c_double
             self.stagelib.MCL_GetCalibration.restype = c_double
+
+            # get stage limits - recall X=2, Y=1, Z=3, lower limits all 0 - and set initial position
+            self.xlim = self.stagelib.MCL_GetCalibration(2, self.stage)
+            self.ylim = self.stagelib.MCL_GetCalibration(1, self.stage)
+            self.zlim = self.stagelib.MCL_GetCalibration(3, self.stage)
+            self.xlim, self.ylim, self.zlim = self.xlim-1., self.ylim-1., self.zlim-1.  # for safety reason
+            self.xpos = self.stagelib.MCL_SingleReadN(2, self.stage)
+            self.ypos = self.stagelib.MCL_SingleReadN(1, self.stage)
+            self.zpos = self.stagelib.MCL_SingleReadN(3, self.stage)
+            self.xmin = self.xpos - 5.
+            self.ymin = self.ypos - 5.
+            self.zmin = self.zpos - 5.
+            self.xmax = self.xpos + 5.
+            self.ymax = self.ypos + 5.
+            self.zmax = self.zpos + 5.
+
         else:
             print('stage not found')
 
         self.uisetup()
         self.updatemap(self.mapdata, 0)
+        self.xslidervaluetextchanged()
+        self.yslidervaluetextchanged()
+        self.sliderminmaxtextchanged()
 
     def __del__(self):
         self.laserpowertimer.stop()
@@ -339,7 +357,7 @@ class MinionConfocalNavigation(QWidget):
         confocal_layout.addWidget(self.scanprogress, 9, 2, 1, 2)
         confocal_layout.addWidget(self.scanprogresslabel, 9, 4, 1, 2)
         confocal_layout.addWidget(self.mapsavenametext, 9, 8, 1, 2)
-        confocal_layout.addWidget(self.mapsave, 9, 8, 1, 2)
+        confocal_layout.addWidget(self.mapsave, 10, 8, 1, 2)
 
         confocal_layout.addWidget(self.settlingtimelabel, 2, 10, 1, 1)
         confocal_layout.addWidget(self.settlingtimetext, 2, 11, 1, 1)
@@ -361,7 +379,8 @@ class MinionConfocalNavigation(QWidget):
         self.xslidervaluetext.setValue(self.xslider.value()/100)
         self.vlinecursor.set_xdata(self.xslider.value()/100)
         self.mapcanvas.draw()
-        self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
+        if self.hardware_stage is True:
+            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
 
     def xslidervaluetextchanged(self):
         """
@@ -370,23 +389,57 @@ class MinionConfocalNavigation(QWidget):
         self.xslider.setValue(self.xslidervaluetext.value()*100)
         self.vlinecursor.set_xdata(self.xslidervaluetext.value())
         self.mapcanvas.draw()
-        self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
+        if self.hardware_stage is True:
+            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
 
     def sliderminmaxtextchanged(self):
         self.xmin = self.xslidermintext.value()
         self.xmax = self.xslidermaxtext.value()
         self.ymin = self.yslidermintext.value()
         self.ymax = self.yslidermaxtext.value()
+        self.zmin = self.zslidermintext.value()
+        self.zmax = self.zslidermaxtext.value()
+
+        # check for stage limit violations
+        if self.xmin < 0.:
+            self.xmin = 0.
+            self.xslidermintext.setValue(self.xmin)
+        if self.xmax > self.xlim:
+            self.xmax = self.xlim
+            self.xslidermaxtext.setValue(self.xmax)
+        if self.ymin < 0.:
+            self.ymin = 0.
+            self.yslidermintext.setValue(self.ymin)
+        if self.ymax > self.ylim:
+            self.ymax = self.ylim
+            self.yslidermaxtext.setValue(self.ymax)
+        if self.zmin < 0.:
+            self.zmin = 0.
+            self.zslidermintext.setValue(self.zmin)
+        if self.zmax > self.zlim:
+            self.zmax = self.zlim
+            self.zslidermaxtext.setValue(self.zmax)
+
         self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])
         self.mapcanvas.draw()
+
         self.xslider.setMinimum(self.xmin*100)
         self.xslider.setMaximum(self.xmax*100)
         self.xslider.setTickInterval(int((self.xmax-self.xmin)/10*100))
-        self.xslider.setValue(int((self.xmin+self.xmax)/2*100))
         self.yslider.setMinimum(self.ymin*100)
         self.yslider.setMaximum(self.ymax*100)
         self.yslider.setTickInterval(int((self.ymax-self.ymin)/10*100))
-        self.yslider.setValue(int((self.ymin+self.ymax)/2*100))
+        self.zslider.setMinimum(self.zmin*100)
+        self.zslider.setMaximum(self.zmax*100)
+        self.zslider.setTickInterval(int((self.zmax-self.zmin)/10*100))
+
+        # check if slider pos get out of its boundaries - if not center pos between min and max
+        if not self.xmin < self.xpos < self.xmax:
+            self.xslider.setValue(int((self.xmin+self.xmax)/2*100))
+        if not self.ymin < self.ypos < self.ymax:
+            self.yslider.setValue(int((self.ymin+self.ymax)/2*100))
+        if not self.zmin < self.zpos < self.zmax:
+            self.zslider.setValue(int((self.zmin+self.zmax)/2*100))
 
     def ysliderchanged(self):
         """
@@ -395,7 +448,8 @@ class MinionConfocalNavigation(QWidget):
         self.yslidervaluetext.setValue(self.yslider.value()/100)
         self.hlinecursor.set_ydata(self.yslider.value()/100)
         self.mapcanvas.draw()
-        self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
+        if self.hardware_stage is True:
+            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
 
     def yslidervaluetextchanged(self):
         """
@@ -404,7 +458,8 @@ class MinionConfocalNavigation(QWidget):
         self.yslider.setValue(self.yslidervaluetext.value()*100)
         self.hlinecursor.set_ydata(self.yslidervaluetext.value())
         self.mapcanvas.draw()
-        self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
+        if self.hardware_stage is True:
+            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
 
     def zsliderchanged(self):
         """
@@ -413,7 +468,8 @@ class MinionConfocalNavigation(QWidget):
         self.zslidervaluetext.setValue(self.zslider.value()/100)
         # self.vlinecursor.set_zdata(self.zslider.value()/100)
         # self.mapcanvas.draw()
-        self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
+        if self.hardware_stage is True:
+            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
 
     def zslidervaluetextchanged(self):
         """
@@ -422,7 +478,8 @@ class MinionConfocalNavigation(QWidget):
         self.xslider.setValue(self.xslidervaluetext.value()*100)
         # self.vlinecursor.set_xdata(self.xslidervaluetext.value())
         # self.mapcanvas.draw()
-        self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
+        if self.hardware_stage is True:
+            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
 
 
     def resolutiontextchanged(self):
@@ -457,20 +514,16 @@ class MinionConfocalNavigation(QWidget):
         self.scanprogress.setRange(0, 100)
         self.scanprogress.setValue(0)
 
-        self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.counter, self.stagelib, self.stage)
-        self.confocalthread = QThread(self, objectName='workerThread')
-        self.aquisition.moveToThread(self.confocalthread)
-        self.aquisition.finished.connect(self.confocalthread.quit)
+        if self.hardware_stage is True and self.hardware_counter is True:
+            self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.counter, self.stagelib, self.stage)
+            self.confocalthread = QThread(self, objectName='workerThread')
+            self.aquisition.moveToThread(self.confocalthread)
+            self.aquisition.finished.connect(self.confocalthread.quit)
 
-        self.confocalthread.started.connect(self.aquisition.longrun)
-        self.confocalthread.finished.connect(self.confocalthread.deleteLater)
-        self.aquisition.update.connect(self.updatemap)
-        self.confocalthread.start()
-
-    @pyqtSlot(float, float)
-    def updatesettings(self):  # TODO - check if this is still needed
-        print('update settings')
-        print(self.settlingtime, self.counttime)
+            self.confocalthread.started.connect(self.aquisition.longrun)
+            self.confocalthread.finished.connect(self.confocalthread.deleteLater)
+            self.aquisition.update.connect(self.updatemap)
+            self.confocalthread.start()
 
     @pyqtSlot(np.ndarray, int)
     def updatemap(self, mapdataupdate, progress):
@@ -478,22 +531,26 @@ class MinionConfocalNavigation(QWidget):
         self.mapdata = mapdataupdate.T
         # start = time.time()
         self.map.set_data(self.mapdata)
-        self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])  # TODO - add 1/2 pixel on each side such that pixels are centered at their position
+        self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])  # TODO - add 1/2 pixel width on each side such that pixels are centered at their position
         self.mapcanvas.draw()
         self.colorautoscalepress()
         self.scanprogress.setValue(progress)
         # print(time.time()-start)
 
     def mapstopclicked(self):
-        # TODO - check if thread is running before quitting
-        print('abort scan')
-        self.aquisition.stop()
-        self.confocalthread.quit()
+        # TODO - look if the "ckeck if thread is running" works
+        try:
+            print('abort scan')
+            self.aquisition.stop()
+            self.confocalthread.quit()
+        except:
+            print('no scan running')
 
     def mapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
         np.savetxt(str(os.getcwd())+'/data/'+str(self.filename)+'.txt', self.mapdata)
         self.mapfigure.savefig(str(os.getcwd())+'/data/'+str(self.filename)+'.pdf')
+        self.mapfigure.savefig(str(os.getcwd())+'/data/'+str(self.filename)+'.png')
         print('file saved to data folder')
 
     def timetextchanged(self):
@@ -504,9 +561,9 @@ class MinionConfocalNavigation(QWidget):
             self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
             self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
             self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
             print('\t fpga counttime:', self.check_counttime)
-        print('changed:', self.settlingtime, self.counttime)
+        print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
 
     def checklaserpower(self):
         if self.hardware_laser is True:
