@@ -38,16 +38,22 @@ class MinionConfocalNavigation(QWidget):
         self.hardware_counter = False
         self.hardware_stage = False
 
+        self.scanmodi = ['xy', 'xz', 'yz', 'xyz']
+        self.scanmode = 'xy'
+
         # set backup initial variables
         self.xmin = 5.0
         self.xmax = 10.0
-        self.xpos = 5.0
+        self.xpos = 10
         self.ymin = 5.0
         self.ymax = 10.0
-        self.ypos = 5.0
+        self.ypos = 10
         self.zmin = 0.0
         self.zmax = 50.0
         self.zpos = 25.0
+        self.xlim = 75.0
+        self.ylim = 75.0
+        self.zlim = 50.0
 
         self.resolution = 21
         self.colormin = 0
@@ -184,11 +190,11 @@ class MinionConfocalNavigation(QWidget):
         self.sliderpostextlabel = QLabel('pos')
 
         # create x,y,z sliders and textedits
-        # TODO - add checkboxes to enable scan axis and fix axis
         # X-SLIDER
         self.xsliderlabel = QLabel('x [µm]:')
         self.xslidermintext = QDoubleSpinBox()
         # self.xslidermintext.setFixedWidth(60)
+        self.xslidermintext.setRange(0, 100)
         self.xslidermintext.setValue(self.xmin)
         self.xslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.xslidermaxtext = QDoubleSpinBox()
@@ -216,6 +222,7 @@ class MinionConfocalNavigation(QWidget):
         self.ysliderlabel = QLabel('y [µm]:')
         self.yslidermintext = QDoubleSpinBox()
         # self.yslidermintext.setFixedWidth(60)
+        self.yslidermintext.setRange(0, 100)
         self.yslidermintext.setValue(self.ymin)
         self.yslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.yslidermaxtext = QDoubleSpinBox()
@@ -243,11 +250,12 @@ class MinionConfocalNavigation(QWidget):
         self.zsliderlabel = QLabel('z [µm]:')
         self.zslidermintext = QDoubleSpinBox()
         # self.yslidermintext.setFixedWidth(60)
+        self.zslidermintext.setRange(0, 100)
         self.zslidermintext.setValue(self.ymin)
         self.zslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.zslidermaxtext = QDoubleSpinBox()
         # self.zslidermaxtext.setFixedWidth(70)
-        self.zslidermaxtext.setRange(0, 50)
+        self.zslidermaxtext.setRange(0, 100)
         self.zslidermaxtext.setValue(self.zmax)
         self.zslidermaxtext.editingFinished.connect(self.sliderminmaxtextchanged)
 
@@ -261,7 +269,7 @@ class MinionConfocalNavigation(QWidget):
 
         self.zslidervaluetext = QDoubleSpinBox()
         # self.zslidervaluetext.setFixedWidth(70)
-        self.zslidervaluetext.setRange(0, 50)
+        self.zslidervaluetext.setRange(0, 100)
         self.zslidervaluetext.setDecimals(2)
         self.zslidervaluetext.setValue(self.zslider.value()/100)
         self.zslidervaluetext.editingFinished.connect(self.zslidervaluetextchanged)
@@ -313,61 +321,69 @@ class MinionConfocalNavigation(QWidget):
         self.hline1.setFrameShape(QFrame.HLine)
         self.hline1.setFrameShadow(QFrame.Sunken)
 
+        # select scan modus
+        self.scanselect = QComboBox()
+        self.scanselect.addItems(self.scanmodi)
+        self.scanselect.currentIndexChanged.connect(self.scanmodechange)
+        self.scanselectlabel = QLabel('scan mode')
+
         # create layout
         confocal_layout = QGridLayout()
-        confocal_layout.addWidget(self.mapcanvas, 0, 0, 1, 10)
-        confocal_layout.addWidget(self.toolbar, 1, 0, 1, 10)
+        confocal_layout.addWidget(self.mapcanvas, 0, 0, 10, 10)
+        confocal_layout.addWidget(self.toolbar, 10, 0, 1, 10)
 
-        confocal_layout.addWidget(self.resolutionlabel, 2, 0, 1, 1)
-        confocal_layout.addWidget(self.resolutiontext, 2, 1, 1, 1)
-        confocal_layout.addWidget(self.colorminlabel, 2, 2, 1, 1)
-        confocal_layout.addWidget(self.colormintext, 2, 3, 1, 1)
-        confocal_layout.addWidget(self.colormaxlabel, 2, 4, 1, 1)
-        confocal_layout.addWidget(self.colormaxtext, 2, 5, 1, 1)
-        confocal_layout.addWidget(self.colorautoscale, 2, 6, 1, 1)
+        confocal_layout.addWidget(self.resolutionlabel, 11, 0, 1, 1)
+        confocal_layout.addWidget(self.resolutiontext, 11, 1, 1, 1)
+        confocal_layout.addWidget(self.scanselectlabel, 11, 2, 1, 1)
+        confocal_layout.addWidget(self.scanselect, 11, 3, 1, 1)
+        confocal_layout.addWidget(self.colorminlabel, 11, 4, 1, 1)
+        confocal_layout.addWidget(self.colormintext, 11, 5, 1, 1)
+        confocal_layout.addWidget(self.colormaxlabel, 11, 6, 1, 1)
+        confocal_layout.addWidget(self.colormaxtext, 11, 7, 1, 1)
+        confocal_layout.addWidget(self.colorautoscale, 11, 8, 1, 2)
 
-        confocal_layout.addWidget(self.hline, 3, 0, 1, 10)
+        confocal_layout.addWidget(self.hline, 12, 0, 1, 10)
 
-        confocal_layout.addWidget(self.slidermintextlabel, 4, 1)
-        confocal_layout.addWidget(self.slidermaxtextlabel, 4, 8)
-        confocal_layout.addWidget(self.sliderpostextlabel, 4, 9)
+        confocal_layout.addWidget(self.slidermintextlabel, 13, 1)
+        confocal_layout.addWidget(self.slidermaxtextlabel, 13, 8)
+        confocal_layout.addWidget(self.sliderpostextlabel, 13, 9)
 
-        confocal_layout.addWidget(self.xsliderlabel, 5, 0)
-        confocal_layout.addWidget(self.xslidermintext, 5, 1)
-        confocal_layout.addWidget(self.xslider, 5, 2, 1, 6)
-        confocal_layout.addWidget(self.xslidermaxtext, 5, 8)
-        confocal_layout.addWidget(self.xslidervaluetext, 5, 9)
+        confocal_layout.addWidget(self.xsliderlabel, 14, 0)
+        confocal_layout.addWidget(self.xslidermintext, 14, 1)
+        confocal_layout.addWidget(self.xslider, 14, 2, 1, 6)
+        confocal_layout.addWidget(self.xslidermaxtext, 14, 8)
+        confocal_layout.addWidget(self.xslidervaluetext, 14, 9)
 
-        confocal_layout.addWidget(self.ysliderlabel, 6, 0)
-        confocal_layout.addWidget(self.yslidermintext, 6, 1)
-        confocal_layout.addWidget(self.yslider, 6, 2, 1, 6)
-        confocal_layout.addWidget(self.yslidermaxtext, 6, 8)
-        confocal_layout.addWidget(self.yslidervaluetext, 6, 9)
+        confocal_layout.addWidget(self.ysliderlabel, 15, 0)
+        confocal_layout.addWidget(self.yslidermintext, 15, 1)
+        confocal_layout.addWidget(self.yslider, 15, 2, 1, 6)
+        confocal_layout.addWidget(self.yslidermaxtext, 15, 8)
+        confocal_layout.addWidget(self.yslidervaluetext, 15, 9)
 
-        confocal_layout.addWidget(self.zsliderlabel, 7, 0)
-        confocal_layout.addWidget(self.zslidermintext, 7, 1)
-        confocal_layout.addWidget(self.zslider, 7, 2, 1, 6)
-        confocal_layout.addWidget(self.zslidermaxtext, 7, 8)
-        confocal_layout.addWidget(self.zslidervaluetext, 7, 9)
+        confocal_layout.addWidget(self.zsliderlabel, 16, 0)
+        confocal_layout.addWidget(self.zslidermintext, 16, 1)
+        confocal_layout.addWidget(self.zslider, 16, 2, 1, 6)
+        confocal_layout.addWidget(self.zslidermaxtext, 16, 8)
+        confocal_layout.addWidget(self.zslidervaluetext, 16, 9)
 
-        confocal_layout.addWidget(self.hline1, 8, 0, 1, 10)
+        confocal_layout.addWidget(self.hline1, 17, 0, 1, 10)
 
-        confocal_layout.addWidget(self.mapstart, 9, 0, 2, 1)
-        confocal_layout.addWidget(self.mapstop, 9, 1, 2, 1)
-        confocal_layout.addWidget(self.scanprogress, 9, 2, 1, 2)
-        confocal_layout.addWidget(self.scanprogresslabel, 9, 4, 1, 2)
-        confocal_layout.addWidget(self.mapsavenametext, 9, 8, 1, 2)
-        confocal_layout.addWidget(self.mapsave, 10, 8, 1, 2)
+        confocal_layout.addWidget(self.mapstart, 18, 0, 2, 1)
+        confocal_layout.addWidget(self.mapstop, 18, 1, 2, 1)
+        confocal_layout.addWidget(self.scanprogress, 18, 2, 1, 2)
+        confocal_layout.addWidget(self.scanprogresslabel, 18, 4, 1, 2)
+        confocal_layout.addWidget(self.mapsavenametext, 18, 8, 1, 2)
+        confocal_layout.addWidget(self.mapsave, 19, 8, 1, 2)
 
-        confocal_layout.addWidget(self.settlingtimelabel, 2, 10, 1, 1)
-        confocal_layout.addWidget(self.settlingtimetext, 2, 11, 1, 1)
-        confocal_layout.addWidget(self.counttimelabel, 3, 10, 1, 1)
-        confocal_layout.addWidget(self.counttimetext, 3, 11, 1, 1)
+        confocal_layout.addWidget(self.settlingtimelabel, 13, 10, 1, 1)
+        confocal_layout.addWidget(self.settlingtimetext, 13, 11, 1, 1)
+        confocal_layout.addWidget(self.counttimelabel, 14, 10, 1, 1)
+        confocal_layout.addWidget(self.counttimetext, 14, 11, 1, 1)
 
-        confocal_layout.addWidget(self.laserpowerinfolabel, 4, 10, 1, 1)
-        confocal_layout.addWidget(self.laserpowerinfo, 4, 11, 1, 1)
-        confocal_layout.addWidget(self.laserpowersetlabel, 5, 10, 1, 1)
-        confocal_layout.addWidget(self.laserpowerset, 5, 11, 1, 1)
+        confocal_layout.addWidget(self.laserpowerinfolabel, 15, 10, 1, 1)
+        confocal_layout.addWidget(self.laserpowerinfo, 15, 11, 1, 1)
+        confocal_layout.addWidget(self.laserpowersetlabel, 16, 10, 1, 1)
+        confocal_layout.addWidget(self.laserpowerset, 16, 11, 1, 1)
 
         confocal_layout.setSpacing(2)
         self.setLayout(confocal_layout)
@@ -376,21 +392,26 @@ class MinionConfocalNavigation(QWidget):
         """
         when the xslider is changed the value is written into the xvaluetext field
         """
-        self.xslidervaluetext.setValue(self.xslider.value()/100)
-        self.vlinecursor.set_xdata(self.xslider.value()/100)
+        self.xpos = self.xslider.value()/100
+        self.xslidervaluetext.setValue(self.xpos)
+        self.vlinecursor.set_xdata(self.xpos)
         self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
+            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), 2, self.stage)
 
     def xslidervaluetextchanged(self):
         """
         when the xvaluetext is changed and enter is hit the value is set on the xslider
         """
-        self.xslider.setValue(self.xslidervaluetext.value()*100)
-        self.vlinecursor.set_xdata(self.xslidervaluetext.value())
+        self.xpos = self.xslidervaluetext.value()
+        if not self.xmin <= self.xpos <= self.xmax:
+            self.xpos = (self.xmin+self.xmax)/2.
+            self.xslidervaluetext.setValue(self.xpos)
+        self.xslider.setValue(self.xpos*100)
+        self.vlinecursor.set_xdata(self.xpos)
         self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xslider.value()/100), 2, self.stage)
+            self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), 2, self.stage)
 
     def sliderminmaxtextchanged(self):
         self.xmin = self.xslidermintext.value()
@@ -401,22 +422,22 @@ class MinionConfocalNavigation(QWidget):
         self.zmax = self.zslidermaxtext.value()
 
         # check for stage limit violations
-        if self.xmin < 0.:
+        if not 0. <= self.xmin < self.xmax:
             self.xmin = 0.
             self.xslidermintext.setValue(self.xmin)
-        if self.xmax > self.xlim:
+        if not self.xmin < self.xmax < self.xlim:
             self.xmax = self.xlim
             self.xslidermaxtext.setValue(self.xmax)
-        if self.ymin < 0.:
+        if not 0. <= self.ymin < self.ymax:
             self.ymin = 0.
             self.yslidermintext.setValue(self.ymin)
-        if self.ymax > self.ylim:
+        if not self.ymin < self.ymax < self.ylim:
             self.ymax = self.ylim
             self.yslidermaxtext.setValue(self.ymax)
-        if self.zmin < 0.:
+        if not 0. <= self.zmin < self.zmax:
             self.zmin = 0.
             self.zslidermintext.setValue(self.zmin)
-        if self.zmax > self.zlim:
+        if not self.zmin < self.zmax < self.zlim:
             self.zmax = self.zlim
             self.zslidermaxtext.setValue(self.zmax)
 
@@ -445,42 +466,51 @@ class MinionConfocalNavigation(QWidget):
         """
         when the xslider is changed the value is written into the xvaluetext field
         """
-        self.yslidervaluetext.setValue(self.yslider.value()/100)
-        self.hlinecursor.set_ydata(self.yslider.value()/100)
+        self.ypos = self.yslider.value()/100
+        self.yslidervaluetext.setValue(self.ypos)
+        self.hlinecursor.set_ydata(self.ypos)
         self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
+            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), 1, self.stage)
 
     def yslidervaluetextchanged(self):
         """
         when the xvaluetext is changed and enter is hit the value is set on the xslider
         """
-        self.yslider.setValue(self.yslidervaluetext.value()*100)
-        self.hlinecursor.set_ydata(self.yslidervaluetext.value())
+        self.ypos = self.yslidervaluetext.value()
+        if not self.ymin <= self.ypos <= self.ymax:
+            self.ypos = (self.ymin+self.ymax)/2.
+            self.yslidervaluetext.setValue(self.ypos)
+        self.yslider.setValue(self.ypos*100)
+        self.hlinecursor.set_ydata(self.ypos)
         self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yslider.value()/100), 1, self.stage)
+            self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), 1, self.stage)
 
     def zsliderchanged(self):
         """
         when the xslider is changed the value is written into the xvaluetext field
         """
-        self.zslidervaluetext.setValue(self.zslider.value()/100)
+        self.zpos = self.zslider.value()/100
+        self.zslidervaluetext.setValue(self.zpos)
         # self.vlinecursor.set_zdata(self.zslider.value()/100)
         # self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
+            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), 3, self.stage)
 
     def zslidervaluetextchanged(self):
         """
         when the xvaluetext is changed and enter is hit the value is set on the xslider
         """
-        self.xslider.setValue(self.xslidervaluetext.value()*100)
+        self.zpos = self.zslidervaluetext.value()
+        if not self.zmin <= self.zpos <= self.zmax:
+            self.zpos = (self.zmin+self.zmax)/2.
+            self.zslidervaluetext.setValue(self.zpos)
+        self.zslider.setValue(self.zpos*100)
         # self.vlinecursor.set_xdata(self.xslidervaluetext.value())
         # self.mapcanvas.draw()
         if self.hardware_stage is True:
-            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zslider.value()/100), 3, self.stage)
-
+            self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), 3, self.stage)
 
     def resolutiontextchanged(self):
         self.resolution = self.resolutiontext.value()
@@ -585,6 +615,10 @@ class MinionConfocalNavigation(QWidget):
             print('set new laserpower to [mW]', self.laserpowernew)
         else:
             print('cannot change laserpower - no laser found')
+
+    def scanmodechange(self):
+        self.scanmode = self.scanselect.currentText()
+        print('new scan mode:', self.scanmode)
 
 
 class MinionColfocalMapDataAquisition(QObject):
