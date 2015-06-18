@@ -11,19 +11,18 @@ import sys
 class MinionMainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MinionMainWindow, self).__init__(parent)
-        self.workspace = QMainWindow()
-        # self.workspace.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        # self.workspace.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.setCentralWidget(self.workspace)
-        self.setDockOptions(QMainWindow.AnimatedDocks | QMainWindow.AllowNestedDocks)
+        import minion.minion_confocal as confocal
+        self.confocalwidget = confocal.MinionConfocalUi()
+
+        self.setCentralWidget(self.confocalwidget)
+        self.setDockOptions(QMainWindow.AnimatedDocks | QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks)
         self.menubar = QMenuBar(self)
         self.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
 
-        import minion.minion_confocal as confocal
-        modulelist = [MinionModuleexplorerUi, confocal.MinionConfocalUi]
-        titlelist = ['module explorer', 'confocal module']
+        modulelist = [MinionModuleexplorerUi, MinionModuleexplorerUi]
+        titlelist = ['module explorer', 'module explorer']
         numbermodules = len(modulelist)
         startposition = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         self.addmodule(modulelist, titlelist, startposition, numbermodules)
@@ -45,7 +44,7 @@ class MinionMainWindow(QMainWindow):
             self.dockWidgetContents[i] = windowcontent[i]()
             self.dockWidget[i].setWidget(self.dockWidgetContents[i])
             self.dockWidget[i].setAttribute(Qt.WA_DeleteOnClose)
-            self.workspace.addDockWidget(startposition[i], self.dockWidget[i])
+            self.addDockWidget(startposition[i], self.dockWidget[i])
 
 
 class MinionModuleexplorerUi(QWidget):
