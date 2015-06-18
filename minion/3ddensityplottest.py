@@ -8,6 +8,7 @@ from matplotlib.colors import ColorConverter
 
 def bin_ndarray(ndarray, new_shape, operation='mean'):
     """
+    http://stackoverflow.com/questions/8090229/resize-with-averaging-or-rebin-a-numpy-2d-array
     Bins an ndarray in all axes based on the target shape, by summing or
         averaging.
 
