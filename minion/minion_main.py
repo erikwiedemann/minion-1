@@ -7,6 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import sys
+import time
 
 class MinionMainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -21,7 +22,8 @@ class MinionMainWindow(QMainWindow):
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
 
-        modulelist = [MinionModuleexplorerUi, MinionModuleexplorerUi]
+        import minion.minion_trace as trace
+        modulelist = [MinionModuleexplorerUi, trace.MinionTraceUi]
         titlelist = ['module explorer', 'module explorer']
         numbermodules = len(modulelist)
         startposition = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
@@ -45,6 +47,7 @@ class MinionMainWindow(QMainWindow):
             self.dockWidget[i].setWidget(self.dockWidgetContents[i])
             self.dockWidget[i].setAttribute(Qt.WA_DeleteOnClose)
             self.addDockWidget(startposition[i], self.dockWidget[i])
+            time.sleep(0.2)
 
 
 class MinionModuleexplorerUi(QWidget):

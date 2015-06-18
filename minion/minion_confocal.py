@@ -1,5 +1,5 @@
 """
-confocal module that creates the navigation-, tilt- and settings-tab
+confocal module that creates the navigation widget
 """
 print('executing minion.minion_confocal')
 
