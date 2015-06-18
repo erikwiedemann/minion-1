@@ -32,11 +32,13 @@ class MinionConfocalUi(QWidget):
 class MinionConfocalNavigation(QWidget):
     def __init__(self):
         super(MinionConfocalNavigation, self).__init__()
-        # initialize hardware / if hardware not there, do nothing
-        import minion.minion_hardware_check
-        self.hardware_laser = False
-        self.hardware_counter = False
-        self.hardware_stage = False
+        # check if hardware is available
+        from minion.minion_hardware_check import CheckHardware
+        self.hardware_counter, self.hardware_laser, self.hardware_stage = CheckHardware.check(CheckHardware)
+
+        # self.hardware_laser = False
+        # self.hardware_counter = False
+        # self.hardware_stage = False
 
         self.scanmodi = ['xy', 'xz', 'yz', 'xyz']
         self.scanmode = 'xy'

@@ -11,11 +11,9 @@ from ctypes import *
 class CheckHardware(QObject):
     def __init__(self):
         super(CheckHardware, self).__init__()
-        self.check()
 
     def check(self):
         # check for hardware and set states
-
         try:
             counter = serial.Serial('/dev/ttyUSB1', timeout=1)
             counter.close()
