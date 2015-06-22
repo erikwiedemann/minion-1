@@ -22,6 +22,7 @@ class MinionTraceUi(QWidget):
         # check hardware
         from minion.minion_hardware_check import CheckHardware
         self.hardware_counter, self.hardware_laser, self.hardware_stage = CheckHardware.check(CheckHardware)
+
         # set initial parameters
         self.status = True   # True - allowed to measure, False - forbidden to measure (e.g. if counter is needed elsewhere)
         self.tracemin = 0.
@@ -33,6 +34,18 @@ class MinionTraceUi(QWidget):
         self.tracey1 = np.ndarray([0])  # apd1
         self.tracey2 = np.ndarray([0])  # apd2
         self.traceysum = np.ndarray([0])
+
+        if self.hardware_counter is True:
+            self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.fpgaclock = 80*10**6  # in Hz
+            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
+            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
+            self.counter.write(b't')  # check counttime
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+            print('\t fpga counttime:', self.check_counttime)
+        else:
+            print('counter not found')
+
         self.uisetup()
 
     def uisetup(self):
@@ -64,9 +77,18 @@ class MinionTraceUi(QWidget):
         self.tracelengthtext.setValue(self.tracelength)
         self.tracelengthtext.editingFinished.connect(self.updatetracesetting)
 
-        self.updatetimelabel = QLabel('updatetime:')
+        self.updatetimelabel = QLabel('updatetime [s]:')
         self.updatetimetext = QDoubleSpinBox()
-        self.counttimelabel = QLabel('counttime:')
+        self.updatetimetext.setRange(0, 100)
+        self.updatetimetext.setDecimals(2)
+        self.updatetimetext.setValue(self.updatetime)
+        self.updatetimetext.editingFinished.connect(self.tracetimechanged)
+
+        self.counttimelabel = QLabel('counttime [ms]:')
+        self.counttimetext = QDoubleSpinBox()
+        self.counttimetext.setRange(0, 1000)
+        self.counttimetext.setValue(int(self.counttime*1000))
+        self.counttimetext.editingFinished.connect(self.tracetimechanged)
 
         self.traceapd1check = QCheckBox('apd1')
         self.traceapd1check.stateChanged.connect(self.checkboxupdate)
@@ -87,16 +109,34 @@ class MinionTraceUi(QWidget):
         trace_layout.addWidget(self.traceapd2check, 6, 3, 1, 1)
         trace_layout.addWidget(self.traceapdsumcheck, 6, 4, 1, 1)
 
-        trace_layout.addWidget(self.traceminlabel, 7, 1, 1, 1)
-        trace_layout.addWidget(self.tracemintext, 7, 2, 1, 1)
-        trace_layout.addWidget(self.tracemaxlabel, 7, 3, 1, 1)
-        trace_layout.addWidget(self.tracemaxtext, 7, 4, 1, 1)
+        trace_layout.addWidget(self.traceminlabel, 7, 0, 1, 1)
+        trace_layout.addWidget(self.tracemintext, 7, 1, 1, 1)
+        trace_layout.addWidget(self.tracemaxlabel, 7, 2, 1, 1)
+        trace_layout.addWidget(self.tracemaxtext, 7, 3, 1, 1)
 
-        trace_layout.addWidget(self.tracestartbutton, 8, 0)
-        trace_layout.addWidget(self.tracestopbutton, 8, 1)
+        trace_layout.addWidget(self.counttimelabel, 8, 0, 1, 1)
+        trace_layout.addWidget(self.counttimetext, 8, 1, 1, 1)
+        trace_layout.addWidget(self.updatetimelabel, 8, 2, 1, 1)
+        trace_layout.addWidget(self.updatetimetext, 8, 3, 1, 1)
+
+        trace_layout.addWidget(self.tracestartbutton, 9, 0)
+        trace_layout.addWidget(self.tracestopbutton, 9, 1)
 
         trace_layout.setSpacing(2)
         self.setLayout(trace_layout)
+
+    def tracetimechanged(self):
+        self.counttime = self.counttimetext.value()/1000.
+        self.updatetime = self.updatetimetext.value()
+
+        if self.hardware_counter is True:
+            self.fpgaclock = 80*10**6  # in Hz
+            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
+            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
+            self.counter.write(b't')  # check counttime
+            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+            print('\t fpga counttime:', self.check_counttime)
+        print('counttime:', self.counttime)
 
     def checkboxupdate(self):
         if len(self.tracex) > 0:
@@ -117,9 +157,8 @@ class MinionTraceUi(QWidget):
             self.updatetraceplot([], [], [], 1)
 
     def tracestartclicked(self):
-        if self.status is True:
+        if self.status is True and self.hardware_counter is True:
             print("[%s] start trace" % QThread.currentThread().objectName())
-            countertemp = True
             self.tracex = np.ndarray([0])
             self.tracey1 = np.ndarray([0])  # apd1
             self.tracey2 = np.ndarray([0])  # apd2
@@ -134,16 +173,15 @@ class MinionTraceUi(QWidget):
             self.tracefigure.canvas.draw()
             self.traceaxes.grid()
 
-            if countertemp is True:
-                self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime)
-                self.tracethread = QThread(self, objectName='TraceThread')
-                self.traceaquisition.moveToThread(self.tracethread)
-                self.traceaquisition.tracestop.connect(self.tracethread.quit)
+            self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime)
+            self.tracethread = QThread(self, objectName='TraceThread')
+            self.traceaquisition.moveToThread(self.tracethread)
+            self.traceaquisition.tracestop.connect(self.tracethread.quit)
 
-                self.tracethread.started.connect(self.traceaquisition.longrun)
-                self.tracethread.finished.connect(self.tracethread.deleteLater)
-                self.traceaquisition.updatetrace.connect(self.updatetraceplot)
-                self.tracethread.start()
+            self.tracethread.started.connect(self.traceaquisition.longrun)
+            self.tracethread.finished.connect(self.tracethread.deleteLater)
+            self.traceaquisition.updatetrace.connect(self.updatetraceplot)
+            self.tracethread.start()
 
     def tracestopclicked(self):
         # TODO - look if the "ckeck if thread is running" works
@@ -248,10 +286,19 @@ class MinionTraceAquisition(QObject):
         ypart2 = []
         tstart = time.time()
         while self._isRunning is True:
+            # TODO - check if continuos counting works without delays
             i += 1
             xpart.append(i * self.counttime)
-            ypart1.append(np.random.random_integers(800, 1000))
-            ypart2.append(np.random.random_integers(200, 400))
+            # COUNT
+            self.counter.write(b'C')
+            time.sleep(self.counttime)
+            answer = self.counter.read(8)
+            apd1 = answer[:4]
+            apd2 = answer[4:]
+            apd1_count = int.from_bytes(apd1, byteorder='little')
+            apd2_count = int.from_bytes(apd2, byteorder='little')
+            ypart1.append(apd1_count)
+            ypart2.append(apd2_count)
             time.sleep(self.counttime)
 
             if i % self.updatetime == 0:
