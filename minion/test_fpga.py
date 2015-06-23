@@ -1,10 +1,11 @@
 import serial
 import time
-counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 
 fpgaclock = 80*10**6
 counttime = 0.005  # in s
 counttime_bytes = (int(counttime*fpgaclock)).to_bytes(4, byteorder='little')
+print(counttime_bytes)
 counter.write(b'T'+counttime_bytes)
 counter.write(b't')
 dt_bytes = counter.read(4)

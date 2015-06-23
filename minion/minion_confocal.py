@@ -17,7 +17,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
-
+# TODO - changing xmin xmax should zoom in instead of resizing the image
 class MinionConfocalUi(QWidget):
     def __init__(self, parent=None):
         super(MinionConfocalUi, self).__init__(parent)
@@ -35,10 +35,10 @@ class MinionConfocalNavigation(QWidget):
         # check if hardware is available
         from minion.minion_hardware_check import CheckHardware
         self.hardware_counter, self.hardware_laser, self.hardware_stage = CheckHardware.check(CheckHardware)
-
-        # self.hardware_laser = False
-        # self.hardware_counter = False
-        # self.hardware_stage = False
+        # TODO - hardware check fucks stage up
+        # self.hardware_laser = True
+        # self.hardware_counter = True
+        # self.hardware_stage = True
 
         self.scanmodi = ['xy', 'xz', 'yz', 'xyz']
         self.scanmode = 'xy'
@@ -74,19 +74,21 @@ class MinionConfocalNavigation(QWidget):
         self.laserpowertimer.start()
 
         if self.hardware_laser is True:
-            self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
-            self.checklaserpower()
+            self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!!
+            print('\t laser connected')
+            # self.checklaserpower()
         else:
             print('laser not found')
 
         if self.hardware_counter is True:
-            self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!!
             self.fpgaclock = 80*10**6  # in Hz
             self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
             self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
             self.counter.write(b't')  # check counttime
             self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
             print('\t fpga counttime:', self.check_counttime)
+            print('\t counter connected')
         else:
             print('counter not found')
 
@@ -117,6 +119,7 @@ class MinionConfocalNavigation(QWidget):
             self.xmax = self.xpos + 5.
             self.ymax = self.ypos + 5.
             self.zmax = self.zpos + 5.
+            print('\t stage connected')
 
         else:
             print('stage not found')
@@ -670,6 +673,8 @@ class MinionColfocalMapDataAquisition(QObject):
                 elif self.scanmode == 'xz':
                     dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
+                    self.axis1 = 2
+                    self.axis2 = 3
                 elif self.scanmode == 'yz':
                     dim1 = np.linspace(self.ymin, self.ymax, self.resolution)  # 1-y
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
@@ -687,7 +692,7 @@ class MinionColfocalMapDataAquisition(QObject):
         print("[%s] create worker" % QThread.currentThread().objectName())
 
     def stop(self):
-        self._isRunning=False
+        self._isRunning = False
 
     def longrun(self):
         mapdataupdate = np.zeros((self.resolution, self.resolution))
@@ -696,8 +701,8 @@ class MinionColfocalMapDataAquisition(QObject):
 
         tstart = time.time()
         # MOVE TO START POSITION
-        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xmin), 1, self.stage)
-        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ymin), 2, self.stage)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xmin), self.axis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ymin), self.axis2, self.stage)
         time.sleep(0.5)
 
         for i in range(0, self.resolution**2):
@@ -705,15 +710,15 @@ class MinionColfocalMapDataAquisition(QObject):
                 self.finished.emit()
             else:
                 # MOVE
-                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), 1, self.stage)
-                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), 2, self.stage)
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), self.axis2, self.stage)
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), self.axis1, self.stage)
                 time.sleep(self.settlingtime)  # wait
                 if (i+1) % self.resolution == 0:
                     # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
                     time.sleep(self.settlingtime*2)
                 # CHECK POS
-                pos1 = self.stagelib.MCL_SingleReadN(1, self.stage)
-                pos2 = self.stagelib.MCL_SingleReadN(2, self.stage)
+                pos1 = self.stagelib.MCL_SingleReadN(self.axis2, self.stage)
+                pos2 = self.stagelib.MCL_SingleReadN(self.axis1, self.stage)
                 self.poserrory += (self.list1[0, i] - pos1)
                 self.poserrorx += (self.list2[0, i] - pos2)
 

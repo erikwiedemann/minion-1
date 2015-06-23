@@ -36,7 +36,8 @@ class MinionTraceUi(QWidget):
         self.traceysum = np.ndarray([0])
 
         if self.hardware_counter is True:
-            self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            pass
+            self.counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!! and get self.counter from main or confocal
             self.fpgaclock = 80*10**6  # in Hz
             self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
             self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
@@ -173,7 +174,7 @@ class MinionTraceUi(QWidget):
             self.tracefigure.canvas.draw()
             self.traceaxes.grid()
 
-            self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime)
+            self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime, self.counter)
             self.tracethread = QThread(self, objectName='TraceThread')
             self.traceaquisition.moveToThread(self.tracethread)
             self.traceaquisition.tracestop.connect(self.tracethread.quit)
@@ -268,10 +269,12 @@ class MinionTraceAquisition(QObject):
     tracestop = pyqtSignal()
     updatetrace = pyqtSignal(np.ndarray, np.ndarray, np.ndarray)
 
-    def __init__(self, counttime, updatetime):
+    def __init__(self, counttime, updatetime, counter):
         super(MinionTraceAquisition, self).__init__()
         self._isRunning = True
+
         print("[%s] create worker" % QThread.currentThread().objectName())
+        self.counter = counter
         self.counttime = counttime
         self.updatetime = int(updatetime/self.counttime)
 

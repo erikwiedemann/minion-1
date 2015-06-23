@@ -24,7 +24,7 @@ class MinionMainWindow(QMainWindow):
 
         import minion.minion_trace as trace
         modulelist = [MinionModuleexplorerUi, trace.MinionTraceUi]
-        titlelist = ['module explorer', 'module explorer']
+        titlelist = ['module explorer', 'trace']
         numbermodules = len(modulelist)
         startposition = [Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea]
         self.addmodule(modulelist, titlelist, startposition, numbermodules)
