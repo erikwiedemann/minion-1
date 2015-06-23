@@ -65,7 +65,7 @@ class MinionConfocalNavigation(QWidget):
         self.colormax = self.mapdata.max()
         self.settlingtime = 0.01  # pos error about 10nm - 0.01 results in about 30 nm
         self.counttime = 0.005
-        self.laserpowernew = 10.0  # TODO - set to current laser power
+        self.laserpowernew = 10.0
         self.laserpowermin = 0.001
         self.laserpowermax = 200.
         self.laserpowertimer = QTimer()
@@ -75,6 +75,7 @@ class MinionConfocalNavigation(QWidget):
 
         if self.hardware_laser is True:
             self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.checklaserpower()
         else:
             print('laser not found')
 
@@ -547,7 +548,7 @@ class MinionConfocalNavigation(QWidget):
         self.scanprogress.setValue(0)
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.counter, self.stagelib, self.stage)
+            self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode)
             self.confocalthread = QThread(self, objectName='workerThread')
             self.aquisition.moveToThread(self.confocalthread)
             self.aquisition.finished.connect(self.confocalthread.quit)
@@ -634,7 +635,7 @@ class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, counter, stagelib, stage):
+    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution = resolution
         self.settlingtime = settlingtime
@@ -643,36 +644,43 @@ class MinionColfocalMapDataAquisition(QObject):
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
+        self.zmin = zmin
+        self.zmax = zmax
+        self.scanmode = scanmode
         self.counter = counter
-        self.dimension = 2
+        self.dimension = len(scanmode)
         self.stagelib = stagelib
         self.stage = stage
         self.poserrorx = 0.
         self.poserrory = 0.
+        self.poserrorz = 0.
         self.progress = 0.
 
         if self.stage == 0:
             print('cannot get a handle to the device')
         else:
-            if self.dimension == 2:
+            if self.dimension == 2:  # TODO-check and improve use of 0,1,2 in names
                 mat = np.zeros((self.resolution, self.resolution, 2))  # preallocate
 
-                dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
-                dim2 = np.linspace(self.ymin, self.ymax, self.resolution)  # 2-y
+                if self.scanmode == 'xy':
+                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
+                    dim2 = np.linspace(self.ymin, self.ymax, self.resolution)  # 2-y
+                    self.axis1 = 2
+                    self.axis2 = 1
+                elif self.scanmode == 'xz':
+                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
+                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
+                elif self.scanmode == 'yz':
+                    dim1 = np.linspace(self.ymin, self.ymax, self.resolution)  # 1-y
+                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
 
                 mat[:, :, 0] = dim1
-                # mat[1::2, :, 0] = np.fliplr(mat[1::2, :, 0])  # mirror the odd rows such that the scan goes like a snake
                 mat[:, :, 1] = dim2
                 mat[:, :, 1] = mat[:, :, 1].T
-
-                self.list2 = np.reshape(mat[:, :, 0], (1, self.resolution**2))  # Y list
-                self.list1 = np.reshape(mat[:, :, 1], (1, self.resolution**2))  # X list
-
-                indexmat = np.indices((self.resolution, self.resolution))  # 0-x, 1-y,
+                self.list2 = np.reshape(mat[:, :, 0], (1, self.resolution**2))
+                self.list1 = np.reshape(mat[:, :, 1], (1, self.resolution**2))
+                indexmat = np.indices((self.resolution, self.resolution))
                 indexmat = np.swapaxes(indexmat, 0, 2)
-
-                # indexmat[1::2, :, :] = np.fliplr(indexmat[1::2, :, :])  # mirror the odd rows such that the scan goes like a snake
-                # indexmat = np.flipud(indexmat)
                 self.indexlist = indexmat.reshape((1, self.resolution**2, 2))
 
         self._isRunning = True
