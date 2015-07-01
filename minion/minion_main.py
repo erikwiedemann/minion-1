@@ -24,7 +24,7 @@ class MinionMainWindow(QMainWindow):
         self.statusbar = QStatusBar(self)
         self.setStatusBar(self.statusbar)
 
-        # --------------------------------------------------------------------------------------------------------------
+        # -------------------------------------------------------------------------------------------------------------
         self.moduleexplorerwidget = MinionModuleexplorerUi()
         self.moduleexplorerwidget.confocalchange.connect(self.confocalchange)
         self.moduleexplorerwidget.tracechange.connect(self.tracechange)
@@ -43,7 +43,7 @@ class MinionMainWindow(QMainWindow):
         self.tracewidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.RightDockWidgetArea, self.tracewidgetdockWidget)
 
-        # --------------------------------------------------------------------------------------------------------------
+        # -------------------------------------------------------------------------------------------------------------
         self.setWindowTitle("minion")
         self.setWindowIcon(QIcon('media/minions_icon.png'))
         self.showMaximized()
