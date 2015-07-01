@@ -13,9 +13,12 @@ class CheckHardware(QObject):
         super(CheckHardware, self).__init__()
 
     def check(self):
-        hardware_counter = True
-        hardware_laser = True
-        hardware_stage = True
+        hardware_counter = False
+        hardware_laser = False
+        hardware_stage = False
+        # hardware_counter = True
+        # hardware_laser = True
+        # hardware_stage = True
 
         # check for hardware and set states
         # try:
