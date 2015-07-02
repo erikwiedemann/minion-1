@@ -39,7 +39,7 @@ data = nd.filters.gaussian_filter(data, sigma=7)
 data = np.round(data * 100000., decimals=0)
 
 newlen = 50
-threshhold = 50
+threshhold = 0
 
 data = bin_ndarray(data, (newlen,newlen,newlen))
 x, y, z = (data > threshhold).nonzero()
@@ -52,7 +52,7 @@ ax = fig.add_subplot(111, projection='3d')
 color = data[(data > threshhold).nonzero()]
 print(np.shape(color))
 print(color.min(), color.max())
-img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.2, depthshade=False, marker='.', s=4*newlen)
+img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.1, depthshade=False, marker='.', s=4*newlen)
 cb = plt.colorbar(img)
 ax.set_xlim([0, newlen])
 ax.set_ylim([0, newlen])
