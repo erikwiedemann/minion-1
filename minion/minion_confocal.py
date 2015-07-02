@@ -40,7 +40,7 @@ class MinionConfocalNavigation(QWidget):
         # self.hardware_counter = True
         # self.hardware_stage = True
 
-        self.scanmodi = ['xy', 'xz', 'yz', 'xyz']
+        self.scanmodi = ['xy', 'xz', 'yz']
         self.scanmode = 'xy'
 
         # set backup initial variables
@@ -57,10 +57,11 @@ class MinionConfocalNavigation(QWidget):
         self.ylim = 75.0
         self.zlim = 50.0
 
-        self.resolution = 21
+        self.resolution1 = 21
+        self.resolution2 = 21
         self.colormin = 0
         self.colormax = 100
-        self.mapdata = np.zeros((self.resolution, self.resolution))
+        self.mapdata = np.zeros((self.resolution1, self.resolution2))
         self.colormin = self.mapdata.min()
         self.colormax = self.mapdata.max()
         self.settlingtime = 0.01  # pos error about 10nm - 0.01 results in about 30 nm
@@ -172,11 +173,14 @@ class MinionConfocalNavigation(QWidget):
 
         # create control area
         self.resolutionlabel = QLabel('resolution:')
-        self.resolutiontext = QSpinBox()
-        # self.resolutiontext.setFixedWidth(60)
-        self.resolutiontext.setRange(1, 1000)
-        self.resolutiontext.setValue(self.resolution)
-        self.resolutiontext.editingFinished.connect(self.resolutiontextchanged)
+        self.resolution1text = QSpinBox()
+        self.resolution1text.setRange(1, 1000)
+        self.resolution1text.setValue(self.resolution1)
+        self.resolution1text.editingFinished.connect(self.resolutiontextchanged)
+        self.resolution2text = QSpinBox()
+        self.resolution2text.setRange(1, 1000)
+        self.resolution2text.setValue(self.resolution2)
+        self.resolution2text.editingFinished.connect(self.resolutiontextchanged)
 
         self.colorminlabel = QLabel('color_min')
         self.colormintext = QSpinBox()
@@ -199,14 +203,14 @@ class MinionConfocalNavigation(QWidget):
         # X-SLIDER
         self.xsliderlabel = QLabel('x [µm]:')
         self.xslidermintext = QDoubleSpinBox()
-        # self.xslidermintext.setFixedWidth(60)
         self.xslidermintext.setRange(0, 100)
         self.xslidermintext.setValue(self.xmin)
+        self.xslidermintext.setToolTip('xmin')
         self.xslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.xslidermaxtext = QDoubleSpinBox()
-        # self.xslidermaxtext.setFixedWidth(70)
         self.xslidermaxtext.setRange(0, 100)
         self.xslidermaxtext.setValue(self.xmax)
+        self.xslidermaxtext.setToolTip('xmax')
         self.xslidermaxtext.editingFinished.connect(self.sliderminmaxtextchanged)
 
         self.xslider = QSlider(Qt.Horizontal, self)
@@ -218,23 +222,23 @@ class MinionConfocalNavigation(QWidget):
         self.xslider.valueChanged.connect(self.xsliderchanged)
 
         self.xslidervaluetext = QDoubleSpinBox()
-        # self.xslidervaluetext.setFixedWidth(70)
         self.xslidervaluetext.setRange(0, 100)
         self.xslidervaluetext.setDecimals(2)
         self.xslidervaluetext.setValue(self.xslider.value()/100)
+        self.xslidervaluetext.setToolTip('xpos')
         self.xslidervaluetext.editingFinished.connect(self.xslidervaluetextchanged)
 
         # Y-SLIDER
         self.ysliderlabel = QLabel('y [µm]:')
         self.yslidermintext = QDoubleSpinBox()
-        # self.yslidermintext.setFixedWidth(60)
         self.yslidermintext.setRange(0, 100)
         self.yslidermintext.setValue(self.ymin)
+        self.yslidermintext.setToolTip('ymin')
         self.yslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.yslidermaxtext = QDoubleSpinBox()
-        # self.yslidermaxtext.setFixedWidth(70)
         self.yslidermaxtext.setRange(0, 100)
         self.yslidermaxtext.setValue(self.ymax)
+        self.yslidermaxtext.setToolTip('ymin')
         self.yslidermaxtext.editingFinished.connect(self.sliderminmaxtextchanged)
 
         self.yslider = QSlider(Qt.Horizontal, self)
@@ -246,23 +250,23 @@ class MinionConfocalNavigation(QWidget):
         self.yslider.valueChanged.connect(self.ysliderchanged)
 
         self.yslidervaluetext = QDoubleSpinBox()
-        # self.yslidervaluetext.setFixedWidth(70)
         self.yslidervaluetext.setRange(0, 100)
         self.yslidervaluetext.setDecimals(2)
         self.yslidervaluetext.setValue(self.yslider.value()/100)
+        self.yslidervaluetext.setToolTip('ypos')
         self.yslidervaluetext.editingFinished.connect(self.yslidervaluetextchanged)
 
         # Z-SLIDER
         self.zsliderlabel = QLabel('z [µm]:')
         self.zslidermintext = QDoubleSpinBox()
-        # self.yslidermintext.setFixedWidth(60)
         self.zslidermintext.setRange(0, 100)
         self.zslidermintext.setValue(self.ymin)
+        self.zslidermintext.setToolTip('zmin')
         self.zslidermintext.editingFinished.connect(self.sliderminmaxtextchanged)
         self.zslidermaxtext = QDoubleSpinBox()
-        # self.zslidermaxtext.setFixedWidth(70)
         self.zslidermaxtext.setRange(0, 100)
         self.zslidermaxtext.setValue(self.zmax)
+        self.zslidermaxtext.setToolTip('zmax')
         self.zslidermaxtext.editingFinished.connect(self.sliderminmaxtextchanged)
 
         self.zslider = QSlider(Qt.Horizontal, self)
@@ -274,10 +278,10 @@ class MinionConfocalNavigation(QWidget):
         self.zslider.valueChanged.connect(self.zsliderchanged)
 
         self.zslidervaluetext = QDoubleSpinBox()
-        # self.zslidervaluetext.setFixedWidth(70)
         self.zslidervaluetext.setRange(0, 100)
         self.zslidervaluetext.setDecimals(2)
         self.zslidervaluetext.setValue(self.zslider.value()/100)
+        self.zslidervaluetext.setToolTip('zpos')
         self.zslidervaluetext.editingFinished.connect(self.zslidervaluetextchanged)
 
         # create start, stop, save, progressbar
@@ -297,19 +301,19 @@ class MinionConfocalNavigation(QWidget):
         self.mapsave.clicked.connect(self.mapsaveclicked)
 
         # count and settling time
-        self.settlingtimelabel = QLabel('Settling Time [ms]')
+        self.settlingtimelabel = QLabel('t_settle [ms]:')
         self.settlingtimetext = QDoubleSpinBox()
         self.settlingtimetext.setRange(0, 1000)
         self.settlingtimetext.setValue(int(self.settlingtime*1000))
         self.settlingtimetext.editingFinished.connect(self.timetextchanged)
-        self.counttimelabel = QLabel('Count Time [ms]')
+        self.counttimelabel = QLabel('t_count [ms]:')
         self.counttimetext = QDoubleSpinBox()
         self.counttimetext.setRange(0, 1000)
         self.counttimetext.setValue(int(self.counttime*1000))
         self.counttimetext.editingFinished.connect(self.timetextchanged)
 
         # laser control widgets
-        self.laserpowerinfolabel = QLabel('current power [mW]:')
+        self.laserpowerinfolabel = QLabel('power [mW]:')
         self.laserpowerinfo = QDoubleSpinBox()
         self.laserpowerinfo.setReadOnly(True)
 
@@ -335,61 +339,75 @@ class MinionConfocalNavigation(QWidget):
 
         # create layout
         confocal_layout = QGridLayout()
-        confocal_layout.addWidget(self.mapcanvas, 0, 0, 10, 10)
-        confocal_layout.addWidget(self.toolbar, 10, 0, 1, 10)
+        confocal_layout.addWidget(self.mapcanvas, 0, 0, 10, 11)
+        confocal_layout.addWidget(self.toolbar, 10, 0, 1, 11)
 
-        confocal_layout.addWidget(self.resolutionlabel, 11, 0, 1, 1)
-        confocal_layout.addWidget(self.resolutiontext, 11, 1, 1, 1)
-        confocal_layout.addWidget(self.scanselectlabel, 11, 2, 1, 1)
-        confocal_layout.addWidget(self.scanselect, 11, 3, 1, 1)
-        confocal_layout.addWidget(self.colorminlabel, 11, 4, 1, 1)
-        confocal_layout.addWidget(self.colormintext, 11, 5, 1, 1)
-        confocal_layout.addWidget(self.colormaxlabel, 11, 6, 1, 1)
-        confocal_layout.addWidget(self.colormaxtext, 11, 7, 1, 1)
-        confocal_layout.addWidget(self.colorautoscale, 11, 8, 1, 2)
+        resscancolor = QHBoxLayout()
+        resscancolor.setAlignment(Qt.AlignLeft)
+        resscancolor.addWidget(self.resolutionlabel)
+        resscancolor.addWidget(self.resolution1text)
+        resscancolor.addWidget(self.resolution2text)
+        resscancolor.addWidget(self.scanselectlabel)
+        resscancolor.addWidget(self.scanselect)
+        resscancolor.addWidget(self.colorminlabel)
+        resscancolor.addWidget(self.colormintext)
+        resscancolor.addWidget(self.colormaxlabel)
+        resscancolor.addWidget(self.colormaxtext)
+        resscancolor.addWidget(self.colorautoscale)
+        confocal_layout.addLayout(resscancolor, 11, 0, 1, 11)
 
-        confocal_layout.addWidget(self.hline, 12, 0, 1, 10)
+        timeslaser = QHBoxLayout()
+        timeslaser.setAlignment(Qt.AlignLeft)
+        timeslaser.addWidget(self.settlingtimelabel)
+        timeslaser.addWidget(self.settlingtimetext)
+        timeslaser.addWidget(self.counttimelabel)
+        timeslaser.addWidget(self.counttimetext)
 
-        confocal_layout.addWidget(self.slidermintextlabel, 13, 1)
-        confocal_layout.addWidget(self.slidermaxtextlabel, 13, 8)
-        confocal_layout.addWidget(self.sliderpostextlabel, 13, 9)
+        timeslaser.addWidget(self.laserpowerinfolabel)
+        timeslaser.addWidget(self.laserpowerinfo)
+        timeslaser.addWidget(self.laserpowersetlabel)
+        timeslaser.addWidget(self.laserpowerset)
+        confocal_layout.addLayout(timeslaser, 12, 0, 1, 11)
 
-        confocal_layout.addWidget(self.xsliderlabel, 14, 0)
-        confocal_layout.addWidget(self.xslidermintext, 14, 1)
-        confocal_layout.addWidget(self.xslider, 14, 2, 1, 6)
-        confocal_layout.addWidget(self.xslidermaxtext, 14, 8)
-        confocal_layout.addWidget(self.xslidervaluetext, 14, 9)
+        confocal_layout.addWidget(self.hline, 13, 0, 1, 11)
 
-        confocal_layout.addWidget(self.ysliderlabel, 15, 0)
-        confocal_layout.addWidget(self.yslidermintext, 15, 1)
-        confocal_layout.addWidget(self.yslider, 15, 2, 1, 6)
-        confocal_layout.addWidget(self.yslidermaxtext, 15, 8)
-        confocal_layout.addWidget(self.yslidervaluetext, 15, 9)
+        xsliderbox = QHBoxLayout()
+        xsliderbox.setAlignment(Qt.AlignLeft)
+        xsliderbox.addWidget(self.xsliderlabel)
+        xsliderbox.addWidget(self.xslidermintext)
+        xsliderbox.addWidget(self.xslider)
+        xsliderbox.addWidget(self.xslidermaxtext)
+        xsliderbox.addWidget(self.xslidervaluetext)
+        confocal_layout.addLayout(xsliderbox, 14, 0, 1, 11)
 
-        confocal_layout.addWidget(self.zsliderlabel, 16, 0)
-        confocal_layout.addWidget(self.zslidermintext, 16, 1)
-        confocal_layout.addWidget(self.zslider, 16, 2, 1, 6)
-        confocal_layout.addWidget(self.zslidermaxtext, 16, 8)
-        confocal_layout.addWidget(self.zslidervaluetext, 16, 9)
+        ysliderbox = QHBoxLayout()
+        ysliderbox.addWidget(self.ysliderlabel)
+        ysliderbox.addWidget(self.yslidermintext)
+        ysliderbox.addWidget(self.yslider)
+        ysliderbox.addWidget(self.yslidermaxtext)
+        ysliderbox.addWidget(self.yslidervaluetext)
+        confocal_layout.addLayout(ysliderbox, 15, 0, 1, 11)
 
-        confocal_layout.addWidget(self.hline1, 17, 0, 1, 10)
+        zsliderbox = QHBoxLayout()
+        zsliderbox.addWidget(self.zsliderlabel)
+        zsliderbox.addWidget(self.zslidermintext)
+        zsliderbox.addWidget(self.zslider)
+        zsliderbox.addWidget(self.zslidermaxtext)
+        zsliderbox.addWidget(self.zslidervaluetext)
+        confocal_layout.addLayout(zsliderbox, 16, 0, 1, 11)
 
-        confocal_layout.addWidget(self.mapstart, 18, 0, 2, 1)
-        confocal_layout.addWidget(self.mapstop, 18, 1, 2, 1)
-        confocal_layout.addWidget(self.scanprogress, 18, 2, 1, 2)
-        confocal_layout.addWidget(self.scanprogresslabel, 18, 4, 1, 2)
-        confocal_layout.addWidget(self.mapsavenametext, 18, 8, 1, 2)
-        confocal_layout.addWidget(self.mapsave, 19, 8, 1, 2)
+        confocal_layout.addWidget(self.hline1, 17, 0, 1, 11)
 
-        confocal_layout.addWidget(self.settlingtimelabel, 13, 10, 1, 1)
-        confocal_layout.addWidget(self.settlingtimetext, 13, 11, 1, 1)
-        confocal_layout.addWidget(self.counttimelabel, 14, 10, 1, 1)
-        confocal_layout.addWidget(self.counttimetext, 14, 11, 1, 1)
-
-        confocal_layout.addWidget(self.laserpowerinfolabel, 15, 10, 1, 1)
-        confocal_layout.addWidget(self.laserpowerinfo, 15, 11, 1, 1)
-        confocal_layout.addWidget(self.laserpowersetlabel, 16, 10, 1, 1)
-        confocal_layout.addWidget(self.laserpowerset, 16, 11, 1, 1)
+        scanstartstopstatus = QHBoxLayout()
+        self.mapstart.setFixedHeight(50)
+        scanstartstopstatus.addWidget(self.mapstart)
+        self.mapstop.setFixedHeight(50)
+        scanstartstopstatus.addWidget(self.mapstop)
+        scanstartstopstatus.addWidget(self.scanprogress)
+        scanstartstopstatus.addWidget(self.scanprogresslabel)
+        scanstartstopstatus.addWidget(self.mapsavenametext)
+        scanstartstopstatus.addWidget(self.mapsave)
+        confocal_layout.addLayout(scanstartstopstatus, 19, 0, 1, 11)
 
         confocal_layout.setSpacing(2)
         self.setLayout(confocal_layout)
@@ -519,7 +537,8 @@ class MinionConfocalNavigation(QWidget):
             self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), 3, self.stage)
 
     def resolutiontextchanged(self):
-        self.resolution = self.resolutiontext.value()
+        self.resolution1 = self.resolution1text.value()
+        self.resolution2 = self.resolution2text.value()
 
     def colormintextchanged(self):
         self.colormin = self.colormintext.value()
@@ -551,7 +570,7 @@ class MinionConfocalNavigation(QWidget):
         self.scanprogress.setValue(0)
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionColfocalMapDataAquisition(self.resolution, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode)
+            self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode)
             self.confocalthread = QThread(self, objectName='workerThread')
             self.aquisition.moveToThread(self.confocalthread)
             self.aquisition.finished.connect(self.confocalthread.quit)
@@ -574,7 +593,6 @@ class MinionConfocalNavigation(QWidget):
         # print(time.time()-start)
 
     def mapstopclicked(self):
-        # TODO - look if the "ckeck if thread is running" works
         try:
             print('abort scan')
             self.aquisition.stop()
@@ -638,9 +656,10 @@ class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode):
+    def __init__(self, resolution1, resolution2, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode):
         super(MinionColfocalMapDataAquisition, self).__init__()
-        self.resolution = resolution
+        self.resolution1 = resolution1
+        self.resolution2 = resolution2
         self.settlingtime = settlingtime
         self.counttime = counttime
         self.xmin = xmin
@@ -662,31 +681,31 @@ class MinionColfocalMapDataAquisition(QObject):
         if self.stage == 0:
             print('cannot get a handle to the device')
         else:
-            if self.dimension == 2:  # TODO-check and improve use of 0,1,2 in names
-                mat = np.zeros((self.resolution, self.resolution, 2))  # preallocate
+            if self.dimension == 2:
+                mat = np.zeros((self.resolution1, self.resolution2, 2))  # preallocate
 
                 if self.scanmode == 'xy':
-                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
-                    dim2 = np.linspace(self.ymin, self.ymax, self.resolution)  # 2-y
+                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
+                    dim2 = np.linspace(self.ymin, self.ymax, self.resolution2)  # 2-y
                     self.axis1 = 2
                     self.axis2 = 1
                 elif self.scanmode == 'xz':
-                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution)  # 1-x
-                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
+                    dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
+                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
                     self.axis1 = 2
                     self.axis2 = 3
                 elif self.scanmode == 'yz':
-                    dim1 = np.linspace(self.ymin, self.ymax, self.resolution)  # 1-y
-                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution)  # 2-z
+                    dim1 = np.linspace(self.ymin, self.ymax, self.resolution1)  # 1-y
+                    dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
 
                 mat[:, :, 0] = dim1
                 mat[:, :, 1] = dim2
                 mat[:, :, 1] = mat[:, :, 1].T
-                self.list2 = np.reshape(mat[:, :, 0], (1, self.resolution**2))
-                self.list1 = np.reshape(mat[:, :, 1], (1, self.resolution**2))
-                indexmat = np.indices((self.resolution, self.resolution))
+                self.list1 = np.reshape(mat[:, :, 0], (1, self.resolution1*self.resolution2))
+                self.list2 = np.reshape(mat[:, :, 1], (1, self.resolution1*self.resolution2))
+                indexmat = np.indices((self.resolution1, self.resolution2))
                 indexmat = np.swapaxes(indexmat, 0, 2)
-                self.indexlist = indexmat.reshape((1, self.resolution**2, 2))
+                self.indexlist = indexmat.reshape((1, self.resolution1*self.resolution2, 2))
 
         self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
@@ -695,9 +714,9 @@ class MinionColfocalMapDataAquisition(QObject):
         self._isRunning = False
 
     def longrun(self):
-        mapdataupdate = np.zeros((self.resolution, self.resolution))
+        mapdataupdate = np.zeros((self.resolution1, self.resolution2))
         print("[%s] start scan" % QThread.currentThread().objectName())
-        print('resolution', self.resolution)
+        print('resolution:', self.resolution1, 'x', self.resolution2)
 
         tstart = time.time()
         # MOVE TO START POSITION
@@ -705,7 +724,7 @@ class MinionColfocalMapDataAquisition(QObject):
         status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ymin), self.axis2, self.stage)
         time.sleep(0.5)
 
-        for i in range(0, self.resolution**2):
+        for i in range(0, self.resolution1*self.resolution2):
             if not self._isRunning:
                 self.finished.emit()
             else:
@@ -713,7 +732,7 @@ class MinionColfocalMapDataAquisition(QObject):
                 status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), self.axis2, self.stage)
                 status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), self.axis1, self.stage)
                 time.sleep(self.settlingtime)  # wait
-                if (i+1) % self.resolution == 0:
+                if (i+1) % self.resolution1 == 0:
                     # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
                     time.sleep(self.settlingtime*2)
                 # CHECK POS
@@ -732,16 +751,16 @@ class MinionColfocalMapDataAquisition(QObject):
                 apd2_count = int.from_bytes(apd2, byteorder='little')
                 mapdataupdate[self.indexlist[0, i, 0], self.indexlist[0, i, 1]] = apd1_count + apd2_count
 
-                if (i+1) % self.resolution == 0:
-                    self.progress = int(100*i/(self.resolution**2))
+                if (i+1) % self.resolution1 == 0:
+                    self.progress = int(100*i/(self.resolution1*self.resolution2))
                     self.update.emit(mapdataupdate, self.progress)
                 # print(time.time()-ttemp)
 
         self.update.emit(mapdataupdate, 100)
 
         print('total time needed:', time.time()-tstart)
-        print('average position error (X):', self.poserrorx/(self.resolution**2))
-        print('average position error (Y):', self.poserrory/(self.resolution**2))
+        print('average position error (X):', self.poserrorx/(self.resolution1*self.resolution2))
+        print('average position error (Y):', self.poserrory/(self.resolution1*self.resolution2))
         print('thread done')
         self.finished.emit()
 

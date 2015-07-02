@@ -185,7 +185,6 @@ class MinionTraceUi(QWidget):
             self.tracethread.start()
 
     def tracestopclicked(self):
-        # TODO - look if the "ckeck if thread is running" works
         try:
             print('stop trace')
             self.traceaquisition.stop()
@@ -201,7 +200,7 @@ class MinionTraceUi(QWidget):
 
     @pyqtSlot(np.ndarray, np.ndarray, np.ndarray)
     def updatetraceplot(self, newx, newy1, newy2, updateflag=0):  # if updateflag=1 update min max - only after aquisition possible
-        if updateflag == 0:
+        if updateflag == 0:  # TODO - simplify trace plot selection
             self.tracex = np.append(self.tracex, newx)
             self.tracey1 = np.append(self.tracey1, newy1)
             self.tracey2 = np.append(self.tracey2, newy2)
