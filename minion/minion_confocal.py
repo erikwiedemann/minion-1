@@ -18,12 +18,10 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 
 # TODO - changing xmin xmax should zoom in instead of resizing the image
-class MinionConfocalUi(QWidget):
+class MinionConfocalUi(QWidget): # TODO - remove as not needed
     def __init__(self, parent=None):
         super(MinionConfocalUi, self).__init__(parent)
         self.confocal = MinionConfocalNavigation()
-
-        # self.setFixedSize(650, 800)
         self.confocallayout = QGridLayout()
         self.confocallayout.addWidget(self.confocal)
         self.setLayout(self.confocallayout)
@@ -74,6 +72,7 @@ class MinionConfocalNavigation(QWidget):
         self.laserpowertimer.setInterval(1000)
         self.laserpowertimer.start()
 
+        # TODO - move hardware initiation to minion_main and spread handles - PRIORITY
         if self.hardware_laser is True:
             self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!!
             print('\t laser connected')

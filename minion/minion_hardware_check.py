@@ -5,6 +5,7 @@ print('executing minion.minion_hardware_check')
 
 from PyQt5.QtCore import *
 import serial
+import serial.tools.list_ports
 from serial import serialutil
 from ctypes import *
 
@@ -13,6 +14,8 @@ class CheckHardware(QObject):
         super(CheckHardware, self).__init__()
 
     def check(self):
+        portlist = serial.tools.list_ports.comports()
+        # TODO - find hardware and hand correct port over
         hardware_counter = False
         hardware_laser = False
         hardware_stage = False
