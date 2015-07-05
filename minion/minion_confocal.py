@@ -267,7 +267,6 @@ class MinionConfocalUi(QWidget):
         self.scanprogresslabel = QLabel('est. t:')
 
         self.mapsavenametext = QLineEdit()
-        # self.mapsavenametext.setFixedWidth(120)
         self.mapsavenametext.setText('filename')
         self.mapsave = QPushButton('save scan')
         self.mapsave.clicked.connect(self.mapsaveclicked)
