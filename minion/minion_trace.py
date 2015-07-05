@@ -29,7 +29,7 @@ class MinionTraceUi(QWidget):
         self.tracemax = 60.
         self.tracelength = 60.
         self.counttime = 0.005
-        self.updatetime = 0.5
+        self.updatetime = 100
         self.tracex = np.ndarray([0])
         self.tracey1 = np.ndarray([0])  # apd1
         self.tracey2 = np.ndarray([0])  # apd2
@@ -66,10 +66,10 @@ class MinionTraceUi(QWidget):
         self.tracelengthtext.setValue(self.tracelength)
         self.tracelengthtext.editingFinished.connect(self.updatetracesetting)
 
-        self.updatetimelabel = QLabel('updatetime [s]:')
+        self.updatetimelabel = QLabel('updateintervall:')
         self.updatetimetext = QDoubleSpinBox()
-        self.updatetimetext.setRange(0, 100)
-        self.updatetimetext.setDecimals(2)
+        self.updatetimetext.setRange(10, 1000)
+        self.updatetimetext.setDecimals(0)
         self.updatetimetext.setValue(self.updatetime)
         self.updatetimetext.editingFinished.connect(self.tracetimechanged)
 
@@ -263,7 +263,7 @@ class MinionTraceAquisition(QObject):
         print("[%s] create worker" % QThread.currentThread().objectName())
         self.counter = counter
         self.counttime = counttime
-        self.updatetime = int(updatetime/self.counttime)
+        self.updatetime = updatetime
 
     def stop(self):
         self._isRunning = False
@@ -278,7 +278,7 @@ class MinionTraceAquisition(QObject):
         while self._isRunning is True:
             # TODO - check if continuos counting works without delays
             i += 1
-            xpart.append(i * self.counttime)
+            xpart.append(time.time()-tstart)
             # COUNT
             self.counter.write(b'C')
             time.sleep(self.counttime)
@@ -289,7 +289,6 @@ class MinionTraceAquisition(QObject):
             apd2_count = int.from_bytes(apd2, byteorder='little')
             ypart1.append(apd1_count)
             ypart2.append(apd2_count)
-            time.sleep(self.counttime)
 
             if i % self.updatetime == 0:
                 xpart = np.array(xpart)

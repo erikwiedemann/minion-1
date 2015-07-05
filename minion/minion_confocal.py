@@ -570,7 +570,7 @@ class MinionConfocalUi(QWidget):
         self.scanprogress.setValue(0)
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode)
+            self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode, self.xpos, self.ypos, self.zpos)
             self.confocalthread = QThread(self, objectName='workerThread')
             self.aquisition.moveToThread(self.confocalthread)
             self.aquisition.finished.connect(self.confocalthread.quit)
@@ -661,7 +661,7 @@ class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution1, resolution2, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode):
+    def __init__(self, resolution1, resolution2, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode, xpos, ypos, zpos):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution1 = resolution1
         self.resolution2 = resolution2
@@ -673,6 +673,9 @@ class MinionColfocalMapDataAquisition(QObject):
         self.ymax = ymax
         self.zmin = zmin
         self.zmax = zmax
+        self.xpos = xpos
+        self.ypos = ypos
+        self.zpos = zpos
         self.scanmode = scanmode
         self.counter = counter
         self.dimension = len(scanmode)
@@ -694,6 +697,8 @@ class MinionColfocalMapDataAquisition(QObject):
                     self.axis2 = 1
                     self.startpos1 = self.xmin
                     self.startpos2 = self.ymin
+                    self.pos1 = self.xpos
+                    self.pos2 = self.ypos
                 elif self.scanmode == 'xz':
                     dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
@@ -701,6 +706,8 @@ class MinionColfocalMapDataAquisition(QObject):
                     self.axis2 = 3
                     self.startpos1 = self.xmin
                     self.startpos2 = self.zmin
+                    self.pos1 = self.xpos
+                    self.pos2 = self.zpos
                 elif self.scanmode == 'yz':
                     dim1 = np.linspace(self.ymin, self.ymax, self.resolution1)  # 1-y
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
@@ -708,6 +715,8 @@ class MinionColfocalMapDataAquisition(QObject):
                     self.axis2 = 3
                     self.startpos1 = self.ymin
                     self.startpos2 = self.zmin
+                    self.pos1 = self.ypos
+                    self.pos2 = self.zpos
 
                 dim1 = np.tile(dim1, (1, self.resolution2))
                 dim2 = np.tile(dim2, (self.resolution1, 1))
@@ -754,7 +763,7 @@ class MinionColfocalMapDataAquisition(QObject):
 
                 # COUNT
                 self.counter.write(b'C')
-                time.sleep(self.counttime*1.1)
+                time.sleep(self.counttime*1.05)
                 answer = self.counter.read(8)
                 apd1 = answer[:4]
                 apd2 = answer[4:]
@@ -768,6 +777,8 @@ class MinionColfocalMapDataAquisition(QObject):
                 # print(time.time()-ttemp)
 
         self.update.emit(mapdataupdate, 100)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.pos1), self.axis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.pos2), self.axis2, self.stage)
 
         print('total time needed:', time.time()-tstart)
         print('average position error (X):', self.poserrorx/(self.resolution1*self.resolution2))
