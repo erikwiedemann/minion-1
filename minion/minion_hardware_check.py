@@ -16,12 +16,12 @@ class CheckHardware(QObject):
     def check(self):
         portlist = serial.tools.list_ports.comports()
         # TODO - find hardware and hand correct port over
-        hardware_counter = False
-        hardware_laser = False
-        hardware_stage = False
-        # hardware_counter = True
-        # hardware_laser = True
-        # hardware_stage = True
+        # hardware_counter = False
+        # hardware_laser = False
+        # hardware_stage = False
+        hardware_counter = True
+        hardware_laser = True
+        hardware_stage = True
 
         # check for hardware and set states
         # try:

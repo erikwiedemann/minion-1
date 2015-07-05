@@ -2,6 +2,8 @@ import serial
 import time
 counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 
+countername = 'Profilic Technology Inc.  USB-Serial Controller D'
+
 fpgaclock = 80*10**6
 counttime = 0.005  # in s
 counttime_bytes = (int(counttime*fpgaclock)).to_bytes(4, byteorder='little')

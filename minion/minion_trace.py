@@ -140,22 +140,21 @@ class MinionTraceUi(QWidget):
         print('counttime:', self.counttime)
 
     def checkboxupdate(self):
-        if len(self.tracex) > 0:
-            if self.traceapd1check.isChecked() is True:
-                self.line1.set_marker('.')
-            else:
-                self.line1.set_marker('None')
+        if self.traceapd1check.isChecked() is True:
+            self.line1.set_marker('.')
+        else:
+            self.line1.set_marker('None')
 
-            if self.traceapd2check.isChecked() is True:
-                self.line2.set_marker('.')
-            else:
-                self.line2.set_marker('None')
+        if self.traceapd2check.isChecked() is True:
+            self.line2.set_marker('.')
+        else:
+            self.line2.set_marker('None')
 
-            if self.traceapdsumcheck.isChecked() is True:
-                self.line3.set_marker('.')
-            else:
-                self.line3.set_marker('None')
-            self.updatetraceplot([], [], [], 1)
+        if self.traceapdsumcheck.isChecked() is True:
+            self.line3.set_marker('.')
+        else:
+            self.line3.set_marker('None')
+        self.updatetraceplot([], [], [], 1)
 
     def tracestartclicked(self):
         if self.status is True and self.hardware_counter is True:
@@ -169,7 +168,7 @@ class MinionTraceUi(QWidget):
             self.line1, = self.traceaxes.plot(self.tracex, self.tracey1, '.')
             self.line2, = self.traceaxes.plot(self.tracex, self.tracey2, '.')
             self.line3, = self.traceaxes.plot(self.tracex, self.traceysum, '.')
-            self.checkboxupdate()
+
             self.traceaxes.set_autoscaley_on(True)
             self.tracefigure.canvas.draw()
             self.traceaxes.grid()
@@ -183,6 +182,7 @@ class MinionTraceUi(QWidget):
             self.tracethread.finished.connect(self.tracethread.deleteLater)
             self.traceaquisition.updatetrace.connect(self.updatetraceplot)
             self.tracethread.start()
+            self.checkboxupdate()
 
     def tracestopclicked(self):
         try:
@@ -305,8 +305,8 @@ class MinionTraceAquisition(QObject):
 
             if i % self.updatetime == 0:
                 xpart = np.array(xpart)
-                ypart1 = np.array(ypart1)
-                ypart2 = np.array(ypart2)
+                ypart1 = np.array(ypart1)/self.counttime  # in cps
+                ypart2 = np.array(ypart2)/self.counttime  # in cps
                 self.updatetrace.emit(xpart, ypart1, ypart2)
                 xpart = []
                 ypart1 = []

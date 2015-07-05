@@ -420,8 +420,9 @@ class MinionConfocalNavigation(QWidget):
         """
         self.xpos = self.xslider.value()/100
         self.xslidervaluetext.setValue(self.xpos)
-        self.vlinecursor.set_xdata(self.xpos)
-        self.mapcanvas.draw()
+        if self.scanmode == 'xy' or self.scanmode == 'xz':
+            self.vlinecursor.set_xdata(self.xpos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), 2, self.stage)
 
@@ -434,8 +435,9 @@ class MinionConfocalNavigation(QWidget):
             self.xpos = (self.xmin+self.xmax)/2.
             self.xslidervaluetext.setValue(self.xpos)
         self.xslider.setValue(self.xpos*100)
-        self.vlinecursor.set_xdata(self.xpos)
-        self.mapcanvas.draw()
+        if self.scanmode == 'xy' or self.scanmode == 'xz':
+            self.vlinecursor.set_xdata(self.xpos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), 2, self.stage)
 
@@ -467,8 +469,18 @@ class MinionConfocalNavigation(QWidget):
             self.zmax = self.zlim
             self.zslidermaxtext.setValue(self.zmax)
 
-        self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])
-        self.mapcanvas.draw()
+        if self.scanmode == 'xy':
+            self.mapaxes.set_xlim(self.xmin, self.xmax)
+            self.mapaxes.set_ylim(self.ymin, self.ymax)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'xz':
+            self.mapaxes.set_xlim(self.xmin, self.xmax)
+            self.mapaxes.set_ylim(self.zmin, self.zmax)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.mapaxes.set_xlim(self.ymin, self.ymax)
+            self.mapaxes.set_ylim(self.zmin, self.zmax)
+            self.mapcanvas.draw()
 
         self.xslider.setMinimum(self.xmin*100)
         self.xslider.setMaximum(self.xmax*100)
