@@ -40,6 +40,8 @@ class MinionTraceUi(QWidget):
     def uisetup(self):
         self.tracefigure = Figure()
         self.tracecanvas = FigureCanvas(self.tracefigure)
+        self.tracecanvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.tracecanvas.setMinimumSize(50, 50)
         self.toolbar = NavigationToolbar(self.tracecanvas, self)
 
         self.tracestartbutton = QPushButton('start')

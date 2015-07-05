@@ -120,7 +120,7 @@ class MinionConfocalUi(QWidget):
         self.mapfigure = Figure()
         self.mapcanvas = FigureCanvas(self.mapfigure)
         self.mapcanvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # self.mapcanvas.setFixedSize(600, 500)
+        self.mapcanvas.setMinimumSize(50, 50)
         self.toolbar = NavigationToolbar(self.mapcanvas, self)
         self.mapaxes = self.mapfigure.add_subplot(111)
         self.mapaxes.hold(False)
