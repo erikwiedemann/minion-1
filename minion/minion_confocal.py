@@ -506,8 +506,12 @@ class MinionConfocalNavigation(QWidget):
         """
         self.ypos = self.yslider.value()/100
         self.yslidervaluetext.setValue(self.ypos)
-        self.hlinecursor.set_ydata(self.ypos)
-        self.mapcanvas.draw()
+        if self.scanmode == 'xy':
+            self.hlinecursor.set_ydata(self.ypos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.vlinecursor.set_xdata(self.ypos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), 1, self.stage)
 
@@ -520,8 +524,12 @@ class MinionConfocalNavigation(QWidget):
             self.ypos = (self.ymin+self.ymax)/2.
             self.yslidervaluetext.setValue(self.ypos)
         self.yslider.setValue(self.ypos*100)
-        self.hlinecursor.set_ydata(self.ypos)
-        self.mapcanvas.draw()
+        if self.scanmode == 'xy':
+            self.hlinecursor.set_ydata(self.ypos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.vlinecursor.set_xdata(self.ypos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status1 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), 1, self.stage)
 
@@ -531,8 +539,12 @@ class MinionConfocalNavigation(QWidget):
         """
         self.zpos = self.zslider.value()/100
         self.zslidervaluetext.setValue(self.zpos)
-        # self.vlinecursor.set_zdata(self.zslider.value()/100)
-        # self.mapcanvas.draw()
+        if self.scanmode == 'xz':
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), 3, self.stage)
 
@@ -545,8 +557,12 @@ class MinionConfocalNavigation(QWidget):
             self.zpos = (self.zmin+self.zmax)/2.
             self.zslidervaluetext.setValue(self.zpos)
         self.zslider.setValue(self.zpos*100)
-        # self.vlinecursor.set_xdata(self.xslidervaluetext.value())
-        # self.mapcanvas.draw()
+        if self.scanmode == 'xz':
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
         if self.hardware_stage is True:
             self.status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), 3, self.stage)
 
@@ -600,7 +616,12 @@ class MinionConfocalNavigation(QWidget):
         self.mapdata = mapdataupdate.T
         # start = time.time()
         self.map.set_data(self.mapdata)
-        self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])  # TODO - add 1/2 pixel width on each side such that pixels are centered at their position
+        if self.scanmode == 'xy':
+            self.map.set_extent([self.xmin, self.xmax, self.ymin, self.ymax])  # TODO - add 1/2 pixel width on each side such that pixels are centered at their position
+        elif self.scanmode == 'xz':
+            self.map.set_extent([self.xmin, self.xmax, self.zmin, self.zmax])
+        elif self.scanmode == 'yz':
+            self.map.set_extent([self.ymin, self.ymax, self.zmin, self.zmax])
         self.mapcanvas.draw()
         self.colorautoscalepress()
         self.scanprogress.setValue(progress)
@@ -696,27 +717,33 @@ class MinionColfocalMapDataAquisition(QObject):
             print('cannot get a handle to the device')
         else:
             if self.dimension == 2:
-                mat = np.zeros((self.resolution1, self.resolution2, 2))  # preallocate
-
                 if self.scanmode == 'xy':
                     dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
                     dim2 = np.linspace(self.ymin, self.ymax, self.resolution2)  # 2-y
                     self.axis1 = 2
                     self.axis2 = 1
+                    self.startpos1 = self.xmin
+                    self.startpos2 = self.ymin
                 elif self.scanmode == 'xz':
                     dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
                     self.axis1 = 2
                     self.axis2 = 3
+                    self.startpos1 = self.xmin
+                    self.startpos2 = self.zmin
                 elif self.scanmode == 'yz':
                     dim1 = np.linspace(self.ymin, self.ymax, self.resolution1)  # 1-y
                     dim2 = np.linspace(self.zmin, self.zmax, self.resolution2)  # 2-z
+                    self.axis1 = 1
+                    self.axis2 = 3
+                    self.startpos1 = self.ymin
+                    self.startpos2 = self.zmin
 
-                mat[:, :, 0] = dim1
-                mat[:, :, 1] = dim2
-                mat[:, :, 1] = mat[:, :, 1].T
-                self.list1 = np.reshape(mat[:, :, 0], (1, self.resolution1*self.resolution2))
-                self.list2 = np.reshape(mat[:, :, 1], (1, self.resolution1*self.resolution2))
+                dim1 = np.tile(dim1, (1, self.resolution2))
+                dim2 = np.tile(dim2, (self.resolution1, 1))
+                dim2 = dim2.T
+                self.list1 = np.reshape(dim1, (1, self.resolution1*self.resolution2))
+                self.list2 = np.reshape(dim2, (1, self.resolution1*self.resolution2))
                 indexmat = np.indices((self.resolution1, self.resolution2))
                 indexmat = np.swapaxes(indexmat, 0, 2)
                 self.indexlist = indexmat.reshape((1, self.resolution1*self.resolution2, 2))
@@ -734,8 +761,8 @@ class MinionColfocalMapDataAquisition(QObject):
 
         tstart = time.time()
         # MOVE TO START POSITION
-        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xmin), self.axis1, self.stage)
-        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ymin), self.axis2, self.stage)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.startpos1), self.axis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.startpos2), self.axis2, self.stage)
         time.sleep(0.5)
 
         for i in range(0, self.resolution1*self.resolution2):
@@ -743,17 +770,17 @@ class MinionColfocalMapDataAquisition(QObject):
                 self.finished.emit()
             else:
                 # MOVE
-                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), self.axis2, self.stage)
-                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), self.axis1, self.stage)
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), self.axis1, self.stage)
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), self.axis2, self.stage)
                 time.sleep(self.settlingtime)  # wait
                 if (i+1) % self.resolution1 == 0:
                     # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
                     time.sleep(self.settlingtime*2)
                 # CHECK POS
-                pos1 = self.stagelib.MCL_SingleReadN(self.axis2, self.stage)
-                pos2 = self.stagelib.MCL_SingleReadN(self.axis1, self.stage)
-                self.poserrory += (self.list1[0, i] - pos1)
-                self.poserrorx += (self.list2[0, i] - pos2)
+                pos1 = self.stagelib.MCL_SingleReadN(self.axis1, self.stage)
+                pos2 = self.stagelib.MCL_SingleReadN(self.axis2, self.stage)
+                self.poserrorx += (self.list1[0, i] - pos1)
+                self.poserrory += (self.list2[0, i] - pos2)
 
                 # COUNT
                 self.counter.write(b'C')
@@ -761,8 +788,8 @@ class MinionColfocalMapDataAquisition(QObject):
                 answer = self.counter.read(8)
                 apd1 = answer[:4]
                 apd2 = answer[4:]
-                apd1_count = int.from_bytes(apd1, byteorder='little')
-                apd2_count = int.from_bytes(apd2, byteorder='little')
+                apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+                apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
                 mapdataupdate[self.indexlist[0, i, 0], self.indexlist[0, i, 1]] = apd1_count + apd2_count
 
                 if (i+1) % self.resolution1 == 0:
