@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import sys
 import time
+import serial
 
 class MinionMainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -16,7 +17,11 @@ class MinionMainWindow(QMainWindow):
         import minion.minion_trace as trace
         import minion.minion_3dscan as volumescan
 
-        self.confocalwidget = confocal.MinionConfocalUi()
+        # hardware initialization etc
+        from minion.minion_hardware_check import CheckHardware
+        self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib = CheckHardware.check(CheckHardware)
+        # -------------------------------------------------------------------------------------------------------------
+        self.confocalwidget = confocal.MinionConfocalUi(self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib)
 
         self.setCentralWidget(self.confocalwidget)
         self.setDockOptions(QMainWindow.AnimatedDocks | QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks)
@@ -40,7 +45,7 @@ class MinionMainWindow(QMainWindow):
         self.moduleexplorerdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.moduleexplorerdockWidget)
 
-        self.tracewidget = trace.MinionTraceUi()
+        self.tracewidget = trace.MinionTraceUi(self.hardware_counter, self.counter)
         self.tracewidgetdockWidget = QDockWidget(self)
         self.tracewidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.tracewidgetdockWidget.setWindowTitle('trace')

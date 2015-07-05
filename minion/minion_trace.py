@@ -17,11 +17,11 @@ from matplotlib.figure import Figure
 
 
 class MinionTraceUi(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, hardware_counter, counter, parent=None):
         super(MinionTraceUi, self).__init__(parent)
-        # check hardware
-        from minion.minion_hardware_check import CheckHardware
-        self.hardware_counter, self.hardware_laser, self.hardware_stage = CheckHardware.check(CheckHardware)
+        self.hardware_counter = hardware_counter
+        if self.hardware_counter is True:
+            self.counter = counter
 
         # set initial parameters
         self.status = True   # True - allowed to measure, False - forbidden to measure (e.g. if counter is needed elsewhere)
@@ -34,18 +34,6 @@ class MinionTraceUi(QWidget):
         self.tracey1 = np.ndarray([0])  # apd1
         self.tracey2 = np.ndarray([0])  # apd2
         self.traceysum = np.ndarray([0])
-
-        if self.hardware_counter is True:
-            pass
-            self.counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!! and get self.counter from main or confocal
-            self.fpgaclock = 80*10**6  # in Hz
-            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-            self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
-            print('\t fpga counttime:', self.check_counttime)
-        else:
-            print('counter not found')
 
         self.uisetup()
 

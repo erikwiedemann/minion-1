@@ -14,29 +14,27 @@ import serial
 from ctypes import *
 
 mpl.use("Qt5Agg")
-mplstyle.use('ggplot')  # 'dark_background', 'bmh', 'fivethirtyeight'
+mplstyle.use('ggplot')  # 'ggplot', 'dark_background', 'bmh', 'fivethirtyeight'
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
-# TODO - changing xmin xmax should zoom in instead of resizing the image
-class MinionConfocalUi(QWidget): # TODO - remove as not needed
-    def __init__(self, parent=None):
-        super(MinionConfocalUi, self).__init__(parent)
-        self.confocal = MinionConfocalNavigation()
-        self.confocallayout = QGridLayout()
-        self.confocallayout.addWidget(self.confocal)
-        self.setLayout(self.confocallayout)
+class MinionConfocalUi(QWidget):
+    def __init__(self, hardware_counter, counter, hardware_laser, laser, hardware_stage, stage, stagelib):
+        super(MinionConfocalUi, self).__init__()
 
+        self.hardware_counter = hardware_counter
+        self.hardware_laser = hardware_laser
+        self.hardware_stage = hardware_stage
+        if self.hardware_counter is True:
+            self.counter = counter
+        if self.hardware_laser is True:
+            self.laser = laser
+        if hardware_stage is True:
+            self.stage = stage
+            self.stagelib = stagelib
 
-class MinionConfocalNavigation(QWidget):
-    def __init__(self):
-        super(MinionConfocalNavigation, self).__init__()
-        # check if hardware is available
-        from minion.minion_hardware_check import CheckHardware
-        self.hardware_counter, self.hardware_laser, self.hardware_stage = CheckHardware.check(CheckHardware)
-        # TODO - hardware check fucks stage up
         # self.hardware_laser = True
         # self.hardware_counter = True
         # self.hardware_stage = True
@@ -60,8 +58,6 @@ class MinionConfocalNavigation(QWidget):
 
         self.resolution1 = 21
         self.resolution2 = 21
-        self.colormin = 0
-        self.colormax = 100
         self.mapdata = np.zeros((self.resolution1, self.resolution2))
         self.colormin = self.mapdata.min()
         self.colormax = self.mapdata.max()
@@ -76,33 +72,8 @@ class MinionConfocalNavigation(QWidget):
         self.laserpowertimer.start()
 
         # TODO - move hardware initiation to minion_main and spread handles - PRIORITY
-        if self.hardware_laser is True:
-            self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!!
-            print('\t laser connected')
-            # self.checklaserpower()
-        else:
-            print('laser not found')
-
-        if self.hardware_counter is True:
-            self.counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)  # TODO - check if this is the correct device !!!
-            self.fpgaclock = 80*10**6  # in Hz
-            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-            self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
-            print('\t fpga counttime:', self.check_counttime)
-            print('\t counter connected')
-        else:
-            print('counter not found')
 
         if self.hardware_stage is True:
-            CDLL('libstdc++.so.6', mode=RTLD_GLOBAL)
-            self.stagelib = CDLL('libmadlib.so', 1)
-            self.stage = self.stagelib.MCL_InitHandleOrGetExisting()
-            if self.stage == 0:
-                self.hardware_stage = False
-                print('cound not get stage handle')
-
             # define restypes that are not standard (INT)
             self.stagelib.MCL_SingleReadN.restype = c_double
             self.stagelib.MCL_MonitorN.restype = c_double
@@ -122,8 +93,7 @@ class MinionConfocalNavigation(QWidget):
             self.xmax = self.xpos + 5.
             self.ymax = self.ypos + 5.
             self.zmax = self.zpos + 5.
-            print('\t stage connected')
-
+            print('\t stage position updated')
         else:
             print('stage not found')
 
