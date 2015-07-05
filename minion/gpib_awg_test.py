@@ -15,6 +15,9 @@ try:
     answer = query(awg, "SOURce:VOLTage:AMPLitude?")
     print(float(answer))
 
+    answer = gpib.write(awg, "DISPLAY:BRIGHTNESS 0.1")
+    print((answer))
+
     gpib.close(awg)
 except:
     print('oops')
