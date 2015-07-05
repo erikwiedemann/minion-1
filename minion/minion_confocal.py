@@ -9,10 +9,13 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import numpy as np
 import matplotlib as mpl
+import matplotlib.style as mplstyle
 import serial
 from ctypes import *
 
 mpl.use("Qt5Agg")
+mplstyle.use('ggplot')  # 'dark_background', 'bmh', 'fivethirtyeight'
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
