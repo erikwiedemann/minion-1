@@ -798,8 +798,8 @@ class MinionColfocalMapDataAquisition(QObject):
         status2 = self.stagelib.MCL_SingleWriteN(c_double(self.pos2), self.axis2, self.stage)
 
         print('total time needed:', time.time()-tstart)
-        print('average position error (X):', self.poserrorx/(self.resolution1*self.resolution2))
-        print('average position error (Y):', self.poserrory/(self.resolution1*self.resolution2))
+        print('average position error (dim1):', self.poserrorx/(self.resolution1*self.resolution2))
+        print('average position error (dim2):', self.poserrory/(self.resolution1*self.resolution2))
         print('thread done')
         self.finished.emit()
 

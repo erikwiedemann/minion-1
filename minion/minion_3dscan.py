@@ -227,7 +227,7 @@ class Minion3dscanUI(QWidget):
         self.scanprogress.setValue(0)
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode, self.xpos, self.ypos, self.zpos)
+            self.aquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage)
             self.confocalthread = QThread(self, objectName='workerThread')
             self.aquisition.moveToThread(self.confocalthread)
             self.aquisition.finished.connect(self.confocalthread.quit)
