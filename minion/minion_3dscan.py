@@ -273,3 +273,106 @@ class MinionVolumeMapDataAquisition(QObject):
         self.poserrory = 0.
         self.poserrorz = 0.
         self.progress = 0.
+
+        if self.stage == 0:
+            print('cannot get a handle to the device')
+        else:
+            self.axis1 = 2  # x
+            self.axis2 = 1  # y
+            self.axis3 = 3  # z
+
+            self.startpos1 = self.xmin
+            self.startpos2 = self.ymin
+            self.startpos3 = self.zmin
+            self.pos1 = self.xpos
+            self.pos2 = self.ypos
+            self.pos3 = self.zpos
+
+            dim1 = np.linspace(self.xmin, self.xmax, self.resolution1)  # 1-x
+            dim2 = np.linspace(self.ymin, self.ymax, self.resolution2)  # 2-y
+            dim3 = np.linspace(self.zmin, self.zmax, self.resolution3)  # 3-z
+
+            dim1 = np.tile(dim1, (1, resolution2*resolution3))
+            dim2 = np.tile(dim2, (resolution1, 1))
+            dim2 = dim2.T
+            dim2 = np.tile(dim2, (resolution3, 1))
+            dim3 = np.tile(dim3, (resolution1*resolution2, 1))
+            dim3 = dim3.T
+
+            self.list1 = np.reshape(dim1, (1, resolution1*resolution2*resolution3))
+            self.list2 = np.reshape(dim2, (1, resolution1*resolution2*resolution3))
+            self.list3 = np.reshape(dim3, (1, resolution1*resolution2*resolution3))
+
+            indexmat = np.indices((resolution1, resolution2, resolution3))
+            self.indexlist = indexmat.reshape((1, 3, resolution1*resolution2*resolution3))
+
+        self._isRunning = True
+        print("[%s] create worker" % QThread.currentThread().objectName())
+
+    def stop(self):
+        self._isRunning = False
+
+    def longrun(self):
+        volumemapdataupdate = np.zeros((self.resolution1, self.resolution2, self.resolution3))
+        print("[%s] start scan" % QThread.currentThread().objectName())
+        print('resolution:', self.resolution1, 'x', self.resolution2, 'x', self.resolution3)
+
+        tstart = time.time()
+        # MOVE TO START POSITION
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.startpos1), self.axis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.startpos2), self.axis2, self.stage)
+        status3 = self.stagelib.MCL_SingleWriteN(c_double(self.startpos3), self.axis3, self.stage)
+        time.sleep(0.5)
+
+        for i in range(0, self.resolution1*self.resolution2*self.resolution3):
+            if not self._isRunning:
+                self.finished.emit()
+            else:
+                # MOVE
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.list1[0, i]), self.axis1, self.stage)
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.list2[0, i]), self.axis2, self.stage)
+                status3 = self.stagelib.MCL_SingleWriteN(c_double(self.list3[0, i]), self.axis3, self.stage)
+                time.sleep(self.settlingtime)  # wait
+                if (i+1) % self.resolution1 == 0:
+                    # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
+                    time.sleep(self.settlingtime*2)
+                    # CHECK POS
+                    if (i+i) % (self.resolution1*self.resolution2) == 0:
+                        time.sleep(self.settlingtime*3)
+                pos1 = self.stagelib.MCL_SingleReadN(self.axis1, self.stage)
+                pos2 = self.stagelib.MCL_SingleReadN(self.axis2, self.stage)
+                pos3 = self.stagelib.MCL_SingleReadN(self.axis3, self.stage)
+                self.poserrorx += (self.list1[0, i] - pos1)
+                self.poserrory += (self.list2[0, i] - pos2)
+                self.poserrorz += (self.list3[0, i] - pos3)
+
+                # COUNT
+                self.counter.write(b'C')
+                time.sleep(self.counttime*1.05)
+                answer = self.counter.read(8)
+                apd1 = answer[:4]
+                apd2 = answer[4:]
+                apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+                apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
+                volumemapdataupdate[self.indexlist[0, 2, i], self.indexlist[0, 3, i], self.indexlist[0, 1, i]] = apd1_count + apd2_count  # TODO - check if axis are correct
+
+                if (i+1) % (self.resolution1*self.resolution2) == 0:
+                    self.progress = int(100*i/(self.resolution1*self.resolution2*self.resolution3))
+                    self.update.emit(volumemapdataupdate, self.progress)
+                # print(time.time()-ttemp)
+
+        self.update.emit(volumemapdataupdate, 100)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.pos1), self.axis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.pos2), self.axis2, self.stage)
+        status3 = self.stagelib.MCL_SingleWriteN(c_double(self.pos3), self.axis3, self.stage)
+
+
+        print('total time needed:', time.time()-tstart)
+        print('average position error (dim1):', self.poserrorx/(self.resolution1*self.resolution2*self.resolution3))
+        print('average position error (dim2):', self.poserrory/(self.resolution1*self.resolution2*self.resolution3))
+        print('average position error (dim3):', self.poserrorz/(self.resolution1*self.resolution2*self.resolution3))
+        print('thread done')
+        self.finished.emit()
+
+
+

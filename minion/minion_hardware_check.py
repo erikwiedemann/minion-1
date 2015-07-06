@@ -35,6 +35,7 @@ class CheckHardware(QObject):
             print('\t counter connected')
             hardware_counter = True
         except serialutil.SerialException:
+            self.counter = []
             hardware_counter = False
             print('counter not connected at /dev/ttyUSB2')
 
@@ -42,6 +43,7 @@ class CheckHardware(QObject):
             self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
             hardware_laser = True
         except serialutil.SerialException:
+            self.laser = []
             hardware_laser = False
             print('laser not connected at /dev/ttyUSB2')
 
@@ -51,11 +53,15 @@ class CheckHardware(QObject):
             self.stage = self.stagelib.MCL_InitHandleOrGetExisting()
             if self.stage == 0:
                 hardware_stage = False
+                self.stage = []
+                self.stagelib = []
                 print('cound not get stage handle')
             else:
                 hardware_stage = True
         except:
             hardware_stage = False
+            self.stage = []
+            self.stagelib = []
             print('could not connect stage - either no stage found or issue with libraries')
 
         return hardware_counter, self.counter, hardware_laser, self.laser, hardware_stage, self.stage, self.stagelib
