@@ -14,7 +14,7 @@ import serial
 from ctypes import *
 
 mpl.use("Qt5Agg")
-mplstyle.use('ggplot')  # 'ggplot', 'dark_background', 'bmh', 'fivethirtyeight'
+# mplstyle.use('ggplot')  # 'ggplot', 'dark_background', 'bmh', 'fivethirtyeight'
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -62,7 +62,7 @@ class Minion3dscanUI(QWidget):
         self.volumemapaxes.hold(False)
 
         self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[:, :, self.slice], origin='lower')# , extent=[self.xmin, self.xmax, self.ymin, self.ymax])
-        self.volumecolorbar = self.volumemapfigure.colorbar(self.volumemap, fraction=0.046, pad=0.04, cmap=mpl.cm.rainbow)
+        self.volumecolorbar = self.volumemapfigure.colorbar(self.volumemap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.volumecolorbar.formatter.set_scientific(True)
         self.volumecolorbar.formatter.set_powerlimits((0, 3))
         self.volumecolorbar.update_ticks()
@@ -173,10 +173,8 @@ class Minion3dscanUI(QWidget):
         volumescanlayout.addWidget(self.counttimelabel, 7, 10)
         volumescanlayout.addWidget(self.counttimetext, 7, 11)
 
-
         volumescanlayout.setSpacing(2)
         self.setLayout(volumescanlayout)
-
 
     def sliderchanged(self):
         self.slice = self.slider.value()

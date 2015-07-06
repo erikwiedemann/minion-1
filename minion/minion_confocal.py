@@ -71,8 +71,6 @@ class MinionConfocalUi(QWidget):
         self.laserpowertimer.setInterval(1000)
         self.laserpowertimer.start()
 
-        # TODO - move hardware initiation to minion_main and spread handles - PRIORITY
-
         if self.hardware_stage is True:
             # define restypes that are not standard (INT)
             self.stagelib.MCL_SingleReadN.restype = c_double
@@ -128,7 +126,7 @@ class MinionConfocalUi(QWidget):
         # self.mapdata = np.random.rand(100, 100)*100  #delete later when datastream works
 
         self.map = self.mapaxes.matshow(self.mapdata, origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
-        self.colorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.rainbow)
+        self.colorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.colorbar.formatter.set_scientific(True)
         self.colorbar.formatter.set_powerlimits((0, 3))
         self.colorbar.update_ticks()
@@ -568,6 +566,25 @@ class MinionConfocalUi(QWidget):
         self.scanprogress.setRange(0, 100)
         self.scanprogress.setValue(0)
 
+        if self.scanmode == 'xy':
+            self.mapaxes.set_xlim(self.xmin, self.xmax)
+            self.mapaxes.set_ylim(self.ymin, self.ymax)
+            self.vlinecursor.set_xdata(self.xpos)
+            self.hlinecursor.set_ydata(self.ypos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'xz':
+            self.mapaxes.set_xlim(self.xmin, self.xmax)
+            self.mapaxes.set_ylim(self.zmin, self.zmax)
+            self.vlinecursor.set_xdata(self.xpos)
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
+        elif self.scanmode == 'yz':
+            self.mapaxes.set_xlim(self.ymin, self.ymax)
+            self.mapaxes.set_ylim(self.zmin, self.zmax)
+            self.vlinecursor.set_xdata(self.ypos)
+            self.hlinecursor.set_ydata(self.zpos)
+            self.mapcanvas.draw()
+
         if self.hardware_stage is True and self.hardware_counter is True:
             self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode, self.xpos, self.ypos, self.zpos)
             self.confocalthread = QThread(self, objectName='workerThread')
@@ -695,6 +712,7 @@ class MinionColfocalMapDataAquisition(QObject):
                     self.axis1 = 2
                     self.axis2 = 1
                     self.startpos1 = self.xmin
+                    self.startpos2 = self.ymin
                     self.startpos2 = self.ymin
                     self.pos1 = self.xpos
                     self.pos2 = self.ypos
