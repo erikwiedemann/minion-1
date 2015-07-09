@@ -139,6 +139,7 @@ class Minion3dscanUI(QWidget):
         self.scanprogresslabel = QLabel('est. t:')
         self.mapsavenametext = QLineEdit()
         self.mapsavenametext.setText('filename')
+        self.mapsavenametext.setFixedWidth(80)
         self.mapsave = QPushButton('save scan')
         self.mapsave.clicked.connect(self.volumemapsaveclicked)
 

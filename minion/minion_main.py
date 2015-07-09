@@ -16,6 +16,7 @@ class MinionMainWindow(QMainWindow):
         import minion.minion_confocal as confocal
         import minion.minion_trace as trace
         import minion.minion_3dscan as volumescan
+        import minion.minion_tracker as tracker
 
         # hardware initialization etc
         from minion.minion_hardware_check import CheckHardware
@@ -37,6 +38,7 @@ class MinionMainWindow(QMainWindow):
         self.moduleexplorerwidget.confocalchange.connect(self.confocalchange)
         self.moduleexplorerwidget.tracechange.connect(self.tracechange)
         self.moduleexplorerwidget.volumescanchange.connect(self.volumescanchange)
+        self.moduleexplorerwidget.trackerchange.connect(self.trackerchange)
 
         self.moduleexplorerdockWidget = QDockWidget(self)
         self.moduleexplorerdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
@@ -52,6 +54,7 @@ class MinionMainWindow(QMainWindow):
         self.tracewidgetdockWidget.setWidget(self.tracewidget)
         self.tracewidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.RightDockWidgetArea, self.tracewidgetdockWidget)
+        self.tracewidgetdockWidget.hide()
 
         self.volumescanwidget = volumescan.Minion3dscanUI()
         self.volumescanwidgetdockWidget = QDockWidget(self)
@@ -60,6 +63,15 @@ class MinionMainWindow(QMainWindow):
         self.volumescanwidgetdockWidget.setWidget(self.volumescanwidget)
         self.volumescanwidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.RightDockWidgetArea, self.volumescanwidgetdockWidget)
+        self.volumescanwidgetdockWidget.hide()
+
+        self.trackerwidget = tracker.MinionTrackerUI()
+        self.trackerwidgetdockWidget = QDockWidget(self)
+        self.trackerwidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
+        self.trackerwidgetdockWidget.setWindowTitle('tracker')
+        self.trackerwidgetdockWidget.setWidget(self.trackerwidget)
+        self.trackerwidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.trackerwidgetdockWidget)
 
         # -------------------------------------------------------------------------------------------------------------
         self.setWindowTitle("minion")
@@ -78,17 +90,24 @@ class MinionMainWindow(QMainWindow):
 
     @pyqtSlot()
     def tracechange(self):
-        if self.tracewidget.isVisible():
-            self.tracewidget.hide()
+        if self.tracewidgetdockWidget.isVisible():
+            self.tracewidgetdockWidget.hide()
         else:
-            self.tracewidget.show()
+            self.tracewidgetdockWidget.show()
 
     @pyqtSlot()
     def volumescanchange(self):
-        if self.volumescanwidget.isVisible():
-            self.volumescanwidget.hide()
+        if self.volumescanwidgetdockWidget.isVisible():
+            self.volumescanwidgetdockWidget.hide()
         else:
-            self.volumescanwidget.show()
+            self.volumescanwidgetdockWidget.show()
+
+    @pyqtSlot()
+    def trackerchange(self):
+        if self.trackerwidgetdockWidget.isVisible():
+            self.trackerwidgetdockWidget.hide()
+        else:
+            self.trackerwidgetdockWidget.show()
 
 
 
@@ -96,6 +115,7 @@ class MinionModuleexplorerUi(QWidget):
     confocalchange = pyqtSignal()
     tracechange = pyqtSignal()
     volumescanchange = pyqtSignal()
+    trackerchange = pyqtSignal()
 
     def __init__(self, parent=None):
         super(MinionModuleexplorerUi, self).__init__(parent)
@@ -106,6 +126,7 @@ class MinionModuleexplorerUi(QWidget):
         self.open_confocal.clicked.connect(self.confocalclicked)
 
         self.open_tracker = QPushButton('tracker')
+        self.open_tracker.clicked.connect(self.trackerclicked)
 
         self.open_trace = QPushButton('trace')
         self.open_trace.clicked.connect(self.traceclicked)
@@ -150,6 +171,9 @@ class MinionModuleexplorerUi(QWidget):
 
     def volumescanclicked(self):
         self.volumescanchange.emit()
+
+    def trackerclicked(self):
+        self.trackerchange.emit()
 
 
 def build_minion_main_window():
