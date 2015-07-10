@@ -12,7 +12,7 @@ import time
 data = np.zeros((100, 100))
 data[50, 50] = 1.
 data[20, 30] = 1.
-data[15, 90] = 1.
+data[45, 75] = 1.
 data[75, 10] = 1.
 data[85, 65] = 1.
 
