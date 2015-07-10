@@ -797,7 +797,9 @@ class MinionColfocalMapDataAquisition(QObject):
         self.update.emit(mapdataupdate, 100)
         status1 = self.stagelib.MCL_SingleWriteN(c_double(self.pos1), self.axis1, self.stage)
         status2 = self.stagelib.MCL_SingleWriteN(c_double(self.pos2), self.axis2, self.stage)
-
+        fname = time.strftime('scanhistory/'+'%Y-%m-%d_%H-%M-%S')+'_scan.txt'
+        np.savetxt(fname, mapdataupdate)
+        print('\t saved scan as: '+fname)
         print('total time needed:', time.time()-tstart)
         print('average position error (dim1):', self.poserrorx/(self.resolution1*self.resolution2))
         print('average position error (dim2):', self.poserrory/(self.resolution1*self.resolution2))

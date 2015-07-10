@@ -20,12 +20,14 @@ nvkernel = [[0., 1., 0.], [1., 1., 1.], [0., 1., 0.]]
 data = ndi.convolve(data, nvkernel)
 data = ndi.gaussian_filter(data, 1)
 data += np.random.random((100, 100))*0.15
+np.savetxt(time.strftime('scanhistory/'+'%Y-%m-%d_%H-%M-%S')+'_scan.txt', data)
 
 datamap = np.zeros((100, 100))
 datamap[48:52, 48:52] = data[48:52, 48:52]
 datamap[13:17, 88:92] = data[13:17, 88:92]
 data = np.roll(data, -10, axis=0)
 data = np.roll(data, 5, axis=1)
+
 
 t1 = time.time()
 corr1 = sig.correlate2d(data, datamap, 'same')
