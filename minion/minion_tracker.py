@@ -31,12 +31,31 @@ class MinionTrackerUI(QWidget):
         self.uisetup()
 
     def uisetup(self):
-        # centertracker
+        # CENTER TRACKER
+        self.centerfigure = Figure()
+        self.centercanvas = FigureCanvas(self.centerfigure)
+        self.centercanvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.centercanvas.setMinimumSize(50, 50)
+        self.centertoolbar = NavigationToolbar(self.centercanvas, self)
+        self.centeraxes = self.centerfigure.add_subplot(111)
+        self.centeraxes.hold(False)
+
+        self.centermap = self.mapaxes.matshow(self.centerdata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
+        self.centercolorbar = self.mapfigure.colorbar(self.centermap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
+        self.centercolorbar.formatter.set_scientific(True)
+        self.centercolorbar.formatter.set_powerlimits((0, 3))
+        self.centercolorbar.update_ticks()
+        self.centeraxes.xaxis.set_ticks_position('bottom')
+        self.centeraxes.xaxis.set_tick_params(direction='out')
+        self.centeraxes.yaxis.set_ticks_position('left')
+        self.centeraxes.yaxis.set_tick_params(direction='out')
+
         self.button = QPushButton('banane')
 
 
 
-        # maptracker
+        # -------------------------------------------------------------------------------------------------------------
+        # CONTEXT TRACKER
         # map plot
         self.mapfigure = Figure()
         self.mapcanvas = FigureCanvas(self.mapfigure)
@@ -91,15 +110,22 @@ class MinionTrackerUI(QWidget):
         self.contexttrackerstopbutton = QPushButton('stop context tracker')
         self.contexttrackerstopbutton.clicked.connect(self.contexttrackerstopclicked)
 
-        # layout
+        # LAYOUT
         self.tabs = QTabWidget()
         self.centertrackertab = QWidget()
         self.maptrackertab = QWidget()
 
+        # -------------------------------------------------------------------------------------------------------------
         # centertracker
-        centertrackertablayout = QVBoxLayout()
+        centertrackertablayout = QGridLayout()
+        centertrackertablayout.addWidget(self.centercanvas, 0, 0, 10, 10)
+        centertrackertablayout.addWidget(self.centertoolbar, 10, 0, 1, 10)
+
+
+
         centertrackertablayout.addWidget(self.button)
 
+        # -------------------------------------------------------------------------------------------------------------
         # maptracker
         maptrackertablayout = QGridLayout()
         maptrackertablayout.addWidget(self.mapcanvas, 0, 0, 10, 10)
@@ -111,6 +137,7 @@ class MinionTrackerUI(QWidget):
         maptrackertablayout.addWidget(self.contexttrackerstartbutton)
         maptrackertablayout.addWidget(self.contexttrackerstopbutton)
 
+        # -------------------------------------------------------------------------------------------------------------
         # unite the tabs
         self.centertrackertab.setLayout(centertrackertablayout)
         self.maptrackertab.setLayout(maptrackertablayout)
@@ -238,7 +265,7 @@ class MinionContextTracker(QObject):
             self.wait.emit()
             t_trackerstart = time.time()
             print('\t start context tracking')
-            dx, dy = np.random.randint(-30, 30, size=2)
+            dx, dy = np.random.randint(-10, 10, size=2)
             self.data = np.roll(self.data, dx, axis=0)
             self.data = np.roll(self.data, dy, axis=1)
             self.correlation = sig.fftconvolve(self.data, self.referencedata[::-1, ::-1], 'same')  # best solution!!! - 100 times faster
