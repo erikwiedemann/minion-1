@@ -37,6 +37,7 @@ class MinionTrackerUI(QWidget):
 
     def uisetup(self):
         # CENTER TRACKER
+        # xy canvas
         self.centerfigure = Figure()
         self.centercanvas = FigureCanvas(self.centerfigure)
         self.centercanvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -54,6 +55,10 @@ class MinionTrackerUI(QWidget):
         self.centeraxes.xaxis.set_tick_params(direction='out')
         self.centeraxes.yaxis.set_ticks_position('left')
         self.centeraxes.yaxis.set_tick_params(direction='out')
+
+
+
+
 
         self.button = QPushButton('banane')
 
@@ -258,6 +263,7 @@ class MinionTrackerUI(QWidget):
             print('no context tracker running')
 
     def updatemap(self, mapdata, correlation, xcorr, ycorr, zcorr, status):
+        tstart = time.time()
         self.contexttrackerinfo.append([xcorr, ycorr, zcorr, status])
         self.contexttrackertable.clearContents()
         self.contexttrackertable.setRowCount(len(self.contexttrackerinfo))
@@ -284,6 +290,7 @@ class MinionTrackerUI(QWidget):
         self.correlationcolorbar.set_clim(vmin=self.correlationdata.min(), vmax=self.correlationdata.max())
         self.correlationcolorbar.draw_all()
         self.correlationcanvas.draw()
+        print(time.time()-tstart)
 
 
 

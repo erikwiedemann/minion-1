@@ -1,7 +1,12 @@
 import numpy as np
-data = np.random.randn(100,100,100)
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
+import scipy.ndimage as ndi
+
+data = np.zeros((10, 10, 10))
+data[5, 5, 5] = 10.
+data = ndi.filters.gaussian_filter(data, sigma=1)
+print(data.max())
 
 def cube_show_slider(cube, axis=2, **kwargs):
     """
@@ -25,8 +30,10 @@ def cube_show_slider(cube, axis=2, **kwargs):
     im = cube[s].squeeze()
 
     # display image
-    l = ax.imshow(im, **kwargs)
-
+    l = ax.matshow(im, **kwargs)
+    cb = plt.colorbar(l)
+    cb.set_clim(vmin=data.min(), vmax=data.max())
+    cb.draw_all()
     # define slider
     axcolor = 'lightgoldenrodyellow'
     ax = fig.add_axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
@@ -38,6 +45,8 @@ def cube_show_slider(cube, axis=2, **kwargs):
         s = [slice(ind, ind + 1) if i == axis else slice(None) for i in range(3)]
         im = cube[s].squeeze()
         l.set_data(im, **kwargs)
+        cb.set_clim(vmin=data.min(), vmax=data.max())
+        cb.draw_all()
         fig.canvas.draw()
 
     slider.on_changed(update)
