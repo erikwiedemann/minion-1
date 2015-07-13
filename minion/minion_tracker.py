@@ -24,8 +24,13 @@ class MinionTrackerUI(QWidget):
         super(MinionTrackerUI, self).__init__(parent)
         self.resolution1 = 51  # x
         self.resolution2 = 51  # y
+
+        self.centerdata = np.zeros((self.resolution2, self.resolution1))
         self.mapdata = np.zeros((self.resolution2, self.resolution1))
+        self.correlationdata = np.zeros((self.resolution2, self.resolution1))
         self.referencedata = np.zeros((self.resolution2, self.resolution1))
+        self.contexttrackerinfo = []
+
 
         self.patchlist = []
         self.uisetup()
@@ -40,8 +45,8 @@ class MinionTrackerUI(QWidget):
         self.centeraxes = self.centerfigure.add_subplot(111)
         self.centeraxes.hold(False)
 
-        self.centermap = self.mapaxes.matshow(self.centerdata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
-        self.centercolorbar = self.mapfigure.colorbar(self.centermap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
+        self.centermap = self.centeraxes.matshow(self.centerdata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
+        self.centercolorbar = self.centerfigure.colorbar(self.centermap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.centercolorbar.formatter.set_scientific(True)
         self.centercolorbar.formatter.set_powerlimits((0, 3))
         self.centercolorbar.update_ticks()
@@ -69,6 +74,7 @@ class MinionTrackerUI(QWidget):
 
         self.map = self.mapaxes.matshow(self.mapdata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
         self.mapaxes.set_xlabel('scan')
+        self.mapaxes.xaxis.set_label_position('top')
         self.mapcolorbar = self.mapfigure.colorbar(self.map, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.mapcolorbar.formatter.set_scientific(True)
         self.mapcolorbar.formatter.set_powerlimits((0, 3))
@@ -77,6 +83,27 @@ class MinionTrackerUI(QWidget):
         self.mapaxes.xaxis.set_tick_params(direction='out')
         self.mapaxes.yaxis.set_ticks_position('left')
         self.mapaxes.yaxis.set_tick_params(direction='out')
+
+        # correlation plot
+        self.correlationfigure = Figure()
+        self.correlationcanvas = FigureCanvas(self.correlationfigure)
+        self.correlationcanvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.correlationcanvas.setMinimumSize(50, 50)
+        self.correlationtoolbar = NavigationToolbar(self.correlationcanvas, self)
+        self.correlationaxes = self.correlationfigure.add_subplot(111)
+        self.correlationaxes.hold(False)
+
+        self.correlation = self.correlationaxes.matshow(self.correlationdata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
+        self.correlationaxes.set_xlabel('autocorrelation')
+        self.correlationaxes.xaxis.set_label_position('top')
+        self.correlationcolorbar = self.correlationfigure.colorbar(self.correlation, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
+        self.correlationcolorbar.formatter.set_scientific(True)
+        self.correlationcolorbar.formatter.set_powerlimits((0, 3))
+        self.correlationcolorbar.update_ticks()
+        self.correlationaxes.xaxis.set_ticks_position('bottom')
+        self.correlationaxes.xaxis.set_tick_params(direction='out')
+        self.correlationaxes.yaxis.set_ticks_position('left')
+        self.correlationaxes.yaxis.set_tick_params(direction='out')
 
         # reference plot
         self.referencefigure = Figure()
@@ -87,8 +114,9 @@ class MinionTrackerUI(QWidget):
         self.referenceaxes = self.referencefigure.add_subplot(111)
         self.referenceaxes.hold(False)
 
-        self.referencemap = self.referenceaxes.matshow(self.referencedata, origin='lower')# , extent=[self.xmin, self.xmax, self.ymin, self.ymax])
+        self.referencemap = self.referenceaxes.matshow(self.referencedata, origin='lower', extent=[0, self.resolution1, 0, self.resolution2])
         self.referenceaxes.set_xlabel('reference')
+        self.referenceaxes.xaxis.set_label_position('top')
         self.referencecolorbar = self.referencefigure.colorbar(self.referencemap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.referencecolorbar.formatter.set_scientific(True)
         self.referencecolorbar.formatter.set_powerlimits((0, 3))
@@ -99,6 +127,14 @@ class MinionTrackerUI(QWidget):
         self.referenceaxes.yaxis.set_tick_params(direction='out')
 
         # control
+        self.contexttrackertable = QTableWidget()
+        self.contexttrackertable.setColumnCount(4)
+        # self.contexttrackertable.setRowCount(1000)
+        self.contexttrackertable.setHorizontalHeaderLabels(('xcorr', 'ycorr', 'zcorr', 'status'))
+        self.contexttrackertable.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.contexttrackertable.resizeColumnsToContents()
+        self.contexttrackertable.horizontalHeader().setStretchLastSection(True)
+
         self.loadlastscanbutton = QPushButton('load last scan')
         self.loadlastscanbutton.clicked.connect(self.loadlastscan)
         self.clearreferencebutton = QPushButton('clear reference')
@@ -128,14 +164,18 @@ class MinionTrackerUI(QWidget):
         # -------------------------------------------------------------------------------------------------------------
         # maptracker
         maptrackertablayout = QGridLayout()
+        maptrackertablayout.setSpacing(2)
         maptrackertablayout.addWidget(self.mapcanvas, 0, 0, 10, 10)
         maptrackertablayout.addWidget(self.maptoolbar, 10, 0, 1, 10)
-        maptrackertablayout.addWidget(self.referencecanvas, 11, 0, 10, 10)
-        maptrackertablayout.addWidget(self.referencetoolbar, 21, 0, 1, 10)
-        maptrackertablayout.addWidget(self.loadlastscanbutton)
-        maptrackertablayout.addWidget(self.clearreferencebutton)
-        maptrackertablayout.addWidget(self.contexttrackerstartbutton)
-        maptrackertablayout.addWidget(self.contexttrackerstopbutton)
+        maptrackertablayout.addWidget(self.referencecanvas, 0, 20, 10, 10)
+        maptrackertablayout.addWidget(self.referencetoolbar, 10, 20, 1, 10)
+        maptrackertablayout.addWidget(self.correlationcanvas, 0, 10, 10, 10)
+        maptrackertablayout.addWidget(self.correlationtoolbar, 10, 10, 1, 10)
+        maptrackertablayout.addWidget(self.contexttrackertable, 11, 0, 10, 10)
+        maptrackertablayout.addWidget(self.loadlastscanbutton, 11, 10)
+        maptrackertablayout.addWidget(self.clearreferencebutton, 12, 10)
+        maptrackertablayout.addWidget(self.contexttrackerstartbutton, 13, 10)
+        maptrackertablayout.addWidget(self.contexttrackerstopbutton, 14, 10)
 
         # -------------------------------------------------------------------------------------------------------------
         # unite the tabs
@@ -159,6 +199,7 @@ class MinionTrackerUI(QWidget):
         self.map.set_data(self.mapdata)
         self.map.set_extent([0, self.resolution1, 0, self.resolution2])
         self.referencemap.set_extent([0, self.resolution1, 0, self.resolution2])
+        self.correlation.set_extent([0, self.resolution1, 0, self.resolution2])
         self.map.set_clim(vmin=self.mapdata.min(), vmax=self.mapdata.max())
         self.mapcolorbar.set_clim(vmin=self.mapdata.min(), vmax=self.mapdata.max())
         self.mapcolorbar.draw_all()
@@ -197,6 +238,7 @@ class MinionTrackerUI(QWidget):
 
     def contexttrackerstartclicked(self):
         print("[%s] start tracker" % QThread.currentThread().objectName())
+        self.contexttrackerinfo = []
         self.contexttracker = MinionContextTracker(self.referencedata, self.mapdata)
         self.contexttrackerthread = QThread(self, objectName='workerThread')
         self.contexttracker.moveToThread(self.contexttrackerthread)
@@ -215,24 +257,41 @@ class MinionTrackerUI(QWidget):
         except:
             print('no context tracker running')
 
-    def updatemap(self, correlation, xcorr, ycorr, maxval):
-        self.map.set_data(correlation)
-        self.map.set_clim(vmin=correlation.min(), vmax=correlation.max())
-        self.mapcolorbar.set_clim(vmin=correlation.min(), vmax=correlation.max())
-        self.mapcolorbar.draw_all()
-        self.mapcanvas.draw()
+    def updatemap(self, mapdata, correlation, xcorr, ycorr, zcorr, status):
+        self.contexttrackerinfo.append([xcorr, ycorr, zcorr, status])
+        self.contexttrackertable.clearContents()
+        self.contexttrackertable.setRowCount(len(self.contexttrackerinfo))
+        for i, element in enumerate(self.contexttrackerinfo):
+            for j in range(4):
+                self.contexttrackertable.setItem(i, j, QTableWidgetItem(str(element[j])))
+        self.contexttrackertable.scrollToBottom()
 
+        self.mapdata = mapdata
+        self.correlationdata = correlation
+
+        self.map.set_data(self.mapdata)
+        self.map.set_clim(vmin=self.mapdata.min(), vmax=self.mapdata.max())
+        self.mapcolorbar.set_clim(vmin=self.mapdata.min(), vmax=self.mapdata.max())
+        self.mapcolorbar.draw_all()
         # remove patches
         for patch in self.patchlist:
             patch.remove()
         self.patchlist = []
         self.mapcanvas.draw()
 
+        self.correlation.set_data(self.correlationdata)
+        self.correlation.set_clim(vmin=self.correlationdata.min(), vmax=self.correlationdata.max())
+        self.correlationcolorbar.set_clim(vmin=self.correlationdata.min(), vmax=self.correlationdata.max())
+        self.correlationcolorbar.draw_all()
+        self.correlationcanvas.draw()
+
+
+
 
 class MinionContextTracker(QObject):
     started = pyqtSignal()
     finished = pyqtSignal()
-    update = pyqtSignal(np.ndarray, float, float, float)  # floats are corrections in x y z
+    update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
     wait = pyqtSignal()
     goon = pyqtSignal()
 
@@ -265,22 +324,23 @@ class MinionContextTracker(QObject):
             self.wait.emit()
             t_trackerstart = time.time()
             print('\t start context tracking')
-            dx, dy = np.random.randint(-10, 10, size=2)
+            dx, dy = np.random.randint(0, 20, size=2)
             self.data = np.roll(self.data, dx, axis=0)
             self.data = np.roll(self.data, dy, axis=1)
-            self.correlation = sig.fftconvolve(self.data, self.referencedata[::-1, ::-1], 'same')  # best solution!!! - 100 times faster
+            self.data[0:dy, :] = 0.
+            self.data[:, 0:dx] = 0.
+            self.correlation = sig.fftconvolve(self.data, self.referencedata[::-1, ::-1], 'same')
             maxposy, maxposx = np.unravel_index(self.correlation.argmax(), self.correlation.shape)
-            print(maxposx, maxposy, self.correlation.argmax())
             xcorrect = int(np.round(self.resolution1/2-maxposx))
             ycorrect = int(np.round(self.resolution2/2-maxposy))
-            print(xcorrect, ycorrect)
             self.data = np.roll(self.data, ycorrect, axis=0)
             self.data = np.roll(self.data, xcorrect, axis=1)
+
             # check result
-            self.correlation1 = sig.fftconvolve(self.data, self.referencedata[::-1, ::-1], 'same')  # best solution!!! - 100 times faster
+            self.correlation1 = sig.fftconvolve(self.data, self.referencedata[::-1, ::-1], 'same')
             maxposx, mayposy = np.unravel_index(self.correlation1.argmax(), self.correlation1.shape)
-            print(maxposx, mayposy, self.correlation1.argmax())
-            self.update.emit(self.correlation, xcorrect, ycorrect, self.correlation.argmax())
+
+            self.update.emit(self.data, self.correlation, xcorrect, ycorrect, self.correlation.max(), time.strftime('%H:%M:%S')+' - ok')
 
             print('tracking took ', time.time()-t_trackerstart, 's')
             print('\t context tracking done')
