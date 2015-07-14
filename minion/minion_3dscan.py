@@ -22,8 +22,9 @@ from matplotlib.figure import Figure
 
 
 class Minion3dscanUI(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(Minion3dscanUI, self).__init__(parent)
+        self.parent = parent
         self.xmin = 5.
         self.xmax = 10.
         self.xpos = 10.
@@ -39,10 +40,10 @@ class Minion3dscanUI(QWidget):
 
         self.slice = 0
 
-        self.resolution1 = 21
-        self.resolution2 = 21
-        self.resolution3 = 21
-        self.volumemapdata = np.random.randn(self.resolution1, self.resolution2, self.resolution3)
+        self.resolution1 = 21  # x
+        self.resolution2 = 21  # y
+        self.resolution3 = 21  # z
+        self.volumemapdata = np.zeros((self.resolution1, self.resolution2, self.resolution3))
         # self.volumemapdata = np.zeros((self.resolution1, self.resolution2, self.resolution3))
         self.colormin = self.volumemapdata.min()
         self.colormax = self.volumemapdata.max()
@@ -120,6 +121,24 @@ class Minion3dscanUI(QWidget):
         self.zmaxtext.setValue(self.zmax)
         self.zmaxtext.editingFinished.connect(self.minmaxtextchanged)
 
+        self.resolution1label = QLabel('res_x:')
+        self.resolution1text = QSpinBox()
+        self.resolution1text.setRange(1, 1000)
+        self.resolution1text.setValue(self.resolution1)
+        self.resolution1text.editingFinished.connect(self.resolutiontextchanged)
+
+        self.resolution2label = QLabel('res_y:')
+        self.resolution2text = QSpinBox()
+        self.resolution2text.setRange(1, 1000)
+        self.resolution2text.setValue(self.resolution2)
+        self.resolution2text.editingFinished.connect(self.resolutiontextchanged)
+
+        self.resolution3label = QLabel('res_z:')
+        self.resolution3text = QSpinBox()
+        self.resolution3text.setRange(1, 1000)
+        self.resolution3text.setValue(self.resolution3)
+        self.resolution3text.editingFinished.connect(self.resolutiontextchanged)
+
         # count and settling time
         self.settlingtimelabel = QLabel('t_settle [ms]:')
         self.settlingtimetext = QDoubleSpinBox()
@@ -156,24 +175,34 @@ class Minion3dscanUI(QWidget):
         volumescanlayout.addWidget(self.mapsavenametext, 12, 4)
         volumescanlayout.addWidget(self.mapsave, 12, 5)
 
-        volumescanlayout.addWidget(self.xminlabel, 0, 10)
-        volumescanlayout.addWidget(self.xmintext, 0, 11)
-        volumescanlayout.addWidget(self.xmaxlabel, 1, 10)
-        volumescanlayout.addWidget(self.xmaxtext, 1, 11)
-        volumescanlayout.addWidget(self.yminlabel, 2, 10)
-        volumescanlayout.addWidget(self.ymintext, 2, 11)
-        volumescanlayout.addWidget(self.ymaxlabel, 3, 10)
-        volumescanlayout.addWidget(self.ymaxtext, 3, 11)
-        volumescanlayout.addWidget(self.zminlabel, 4, 10)
-        volumescanlayout.addWidget(self.zmintext, 4, 11)
-        volumescanlayout.addWidget(self.zmaxlabel, 5, 10)
-        volumescanlayout.addWidget(self.zmaxtext, 5, 11)
+        controlboxlabel = QVBoxLayout()
+        controlboxtext = QVBoxLayout()
+        controlboxlabel.addWidget(self.xminlabel)
+        controlboxtext.addWidget(self.xmintext)
+        controlboxlabel.addWidget(self.xmaxlabel)
+        controlboxtext.addWidget(self.xmaxtext)
+        controlboxlabel.addWidget(self.resolution1label)
+        controlboxtext.addWidget(self.resolution1text)
+        controlboxlabel.addWidget(self.yminlabel)
+        controlboxtext.addWidget(self.ymintext)
+        controlboxlabel.addWidget(self.ymaxlabel)
+        controlboxtext.addWidget(self.ymaxtext)
+        controlboxlabel.addWidget(self.resolution2label)
+        controlboxtext.addWidget(self.resolution2text)
+        controlboxlabel.addWidget(self.zminlabel)
+        controlboxtext.addWidget(self.zmintext)
+        controlboxlabel.addWidget(self.zmaxlabel)
+        controlboxtext.addWidget(self.zmaxtext)
+        controlboxlabel.addWidget(self.resolution3label)
+        controlboxtext.addWidget(self.resolution3text)
 
-        volumescanlayout.addWidget(self.settlingtimelabel, 6, 10)
-        volumescanlayout.addWidget(self.settlingtimetext, 6, 11)
-        volumescanlayout.addWidget(self.counttimelabel, 7, 10)
-        volumescanlayout.addWidget(self.counttimetext, 7, 11)
+        controlboxlabel.addWidget(self.settlingtimelabel)
+        controlboxtext.addWidget(self.settlingtimetext)
+        controlboxlabel.addWidget(self.counttimelabel)
+        controlboxtext.addWidget(self.counttimetext)
 
+        volumescanlayout.addLayout(controlboxlabel, 0, 10)
+        volumescanlayout.addLayout(controlboxtext, 0, 11)
         volumescanlayout.setSpacing(2)
         self.setLayout(volumescanlayout)
 
@@ -221,6 +250,12 @@ class Minion3dscanUI(QWidget):
             self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
             print('\t fpga counttime:', self.check_counttime)
         print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
+
+
+    def resolutiontextchanged(self):
+        self.resolution1 = self.resolution1text.value()
+        self.resolution2 = self.resolution2text.value()
+        self.resolution3 = self.resolution3text.value()
 
     def volumemapstartclicked(self):
         print("[%s] start scan" % QThread.currentThread().objectName())

@@ -26,7 +26,7 @@ def fit_fun(data, height, x0, y0, sigmax, sigmay, rot, offset):
 # map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33.txt')
 
 map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33_yz.txt')
-map_original = map_original[170:270, 0:35]
+map_original = map_original[180:230, 15:35]
 
 # map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33_xz.txt')
 # map_original = map_original[180:270, 0:30]
@@ -56,7 +56,7 @@ ax = plt.gca()
 ax.add_artist(ell)
 ell.set_facecolor('None')
 ell.set_edgecolor('white')
-plt.plot(popt[1], popt[2], 'w.', ms=20)
+plt.plot(popt[1], popt[2], 'w.', ms=10)
 
 plt.matshow(creategaussian(x, y, *popt), origin='lower')
 

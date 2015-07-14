@@ -21,8 +21,9 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from matplotlib.figure import Figure
 
 class MinionConfocalUi(QWidget):
-    def __init__(self, hardware_counter, counter, hardware_laser, laser, hardware_stage, stage, stagelib):
-        super(MinionConfocalUi, self).__init__()
+    def __init__(self, parent, hardware_counter, counter, hardware_laser, laser, hardware_stage, stage, stagelib):
+        super(MinionConfocalUi, self).__init__(parent)
+        self.parent = parent
 
         self.hardware_counter = hardware_counter
         self.hardware_laser = hardware_laser

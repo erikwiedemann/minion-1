@@ -17,8 +17,9 @@ from matplotlib.figure import Figure
 
 
 class MinionTraceUi(QWidget):
-    def __init__(self, hardware_counter, counter, parent=None):
+    def __init__(self, parent, hardware_counter, counter):
         super(MinionTraceUi, self).__init__(parent)
+        self.parent = parent
         self.hardware_counter = hardware_counter
         if self.hardware_counter is True:
             self.counter = counter

@@ -22,7 +22,7 @@ class MinionMainWindow(QMainWindow):
         from minion.minion_hardware_check import CheckHardware
         self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib = CheckHardware.check(CheckHardware)
         # -------------------------------------------------------------------------------------------------------------
-        self.confocalwidget = confocal.MinionConfocalUi(self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib)
+        self.confocalwidget = confocal.MinionConfocalUi(self, self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib)
 
         self.setCentralWidget(self.confocalwidget)
         self.setDockOptions(QMainWindow.AnimatedDocks | QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks)
@@ -47,7 +47,7 @@ class MinionMainWindow(QMainWindow):
         self.moduleexplorerdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.moduleexplorerdockWidget)
 
-        self.tracewidget = trace.MinionTraceUi(self.hardware_counter, self.counter)
+        self.tracewidget = trace.MinionTraceUi(self, self.hardware_counter, self.counter)
         self.tracewidgetdockWidget = QDockWidget(self)
         self.tracewidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.tracewidgetdockWidget.setWindowTitle('trace')
@@ -56,7 +56,7 @@ class MinionMainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.tracewidgetdockWidget)
         self.tracewidgetdockWidget.hide()
 
-        self.volumescanwidget = volumescan.Minion3dscanUI()
+        self.volumescanwidget = volumescan.Minion3dscanUI(self)
         self.volumescanwidgetdockWidget = QDockWidget(self)
         self.volumescanwidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.volumescanwidgetdockWidget.setWindowTitle('3d scan')
@@ -65,7 +65,7 @@ class MinionMainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.volumescanwidgetdockWidget)
         self.volumescanwidgetdockWidget.hide()
 
-        self.trackerwidget = tracker.MinionTrackerUI()
+        self.trackerwidget = tracker.MinionTrackerUI(self)
         self.trackerwidgetdockWidget = QDockWidget(self)
         self.trackerwidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.trackerwidgetdockWidget.setWindowTitle('tracker')
@@ -131,7 +131,7 @@ class MinionModuleexplorerUi(QWidget):
         self.open_trace = QPushButton('trace')
         self.open_trace.clicked.connect(self.traceclicked)
 
-        self.open_odmr = QPushButton('odmr')
+        self.open_odmr = QPushButton('cw-odmr')
 
         self.open_pulsepattern = QPushButton('pulsepattern')
 

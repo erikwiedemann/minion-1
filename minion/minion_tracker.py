@@ -20,8 +20,10 @@ from matplotlib.patches import Rectangle
 
 
 class MinionTrackerUI(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(MinionTrackerUI, self).__init__(parent)
+        self.parent = parent
+
         self.resolution1 = 11  # x
         self.resolution2 = 11  # y
         self.resolution3 = 11  # z
@@ -34,7 +36,6 @@ class MinionTrackerUI(QWidget):
         self.correlationdata = np.zeros((self.resolution2, self.resolution1))
         self.referencedata = np.zeros((self.resolution2, self.resolution1))
         self.contexttrackerinfo = []
-
 
         self.patchlist = []
         self.uisetup()
@@ -105,9 +106,7 @@ class MinionTrackerUI(QWidget):
         self.centeraxesyz.yaxis.set_tick_params(direction='out')
 
 
-        self.button = QPushButton('banane')
-
-
+        self.button = QPushButton('find center at crosshair pos')
 
         # -------------------------------------------------------------------------------------------------------------
         # CONTEXT TRACKER
@@ -220,14 +219,20 @@ class MinionTrackerUI(QWidget):
         # maptracker
         maptrackertablayout = QGridLayout()
 
-
-        maptrackertablayout.addWidget(self.mapcanvas, 0, 0, 10, 10)
-        maptrackertablayout.addWidget(self.maptoolbar, 10, 0, 1, 10)
-        maptrackertablayout.addWidget(self.correlationcanvas, 0, 10, 10, 10)
-        maptrackertablayout.addWidget(self.correlationtoolbar, 10, 10, 1, 10)
-        maptrackertablayout.addWidget(self.referencecanvas, 0, 20, 10, 10)
-        maptrackertablayout.addWidget(self.referencetoolbar, 10, 20, 1, 10)
-
+        maptrackerplotbox = QHBoxLayout()
+        plotbox1 = QVBoxLayout()
+        plotbox1.addWidget(self.mapcanvas)
+        plotbox1.addWidget(self.maptoolbar)
+        plotbox2 = QVBoxLayout()
+        plotbox2.addWidget(self.correlationcanvas)
+        plotbox2.addWidget(self.correlationtoolbar)
+        plotbox3 = QVBoxLayout()
+        plotbox3.addWidget(self.referencecanvas)
+        plotbox3.addWidget(self.referencetoolbar)
+        maptrackerplotbox.addLayout(plotbox1)
+        maptrackerplotbox.addLayout(plotbox2)
+        maptrackerplotbox.addLayout(plotbox3)
+        maptrackertablayout.addLayout(maptrackerplotbox, 0, 0, 10, 30)
         maptrackertablayout.addWidget(self.contexttrackertable, 11, 0, 10, 10)
         maptrackertablayout.addWidget(self.loadlastscanbutton, 11, 10)
         maptrackertablayout.addWidget(self.clearreferencebutton, 12, 10)
