@@ -26,7 +26,7 @@ class MinionTrackerUI(QWidget):
 
         self.resolution1 = 11  # x
         self.resolution2 = 11  # y
-        self.resolution3 = 11  # z
+        self.resolution3 = 21  # z
 
         self.centerdataxy = np.zeros((self.resolution2, self.resolution1))
         self.centerdataxz = np.zeros((self.resolution3, self.resolution1))
@@ -359,7 +359,7 @@ class MinionContextTracker(QObject):
     wait = pyqtSignal()
     goon = pyqtSignal()
 
-    def __init__(self, referencedata, data,  parent=None): # remove data as not needed
+    def __init__(self, referencedata, data,  parent=None):  # remove data as not needed
         super(MinionContextTracker, self).__init__(parent)
         self.referencedata = referencedata
         self.data = data
@@ -412,4 +412,12 @@ class MinionContextTracker(QObject):
             self.goon.emit()
 
 
+class MinionCenterTracker(QObject):
+    started = pyqtSignal()
+    finished = pyqtSignal()
+    update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
+    wait = pyqtSignal()
+    goon = pyqtSignal()
 
+    def __init__(self, referencedata, data,  parent=None):
+        super(MinionCenterTracker, self).__init__(parent)

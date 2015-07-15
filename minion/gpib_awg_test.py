@@ -2,9 +2,9 @@ import gpib
 import time
 
 def query(handle, command, numbytes=100):
-    gpib.write(handle,command)
+    gpib.write(handle, command)
     time.sleep(0.1)
-    response = gpib.read(handle,numbytes)
+    response = gpib.read(handle, numbytes)
     return response
 
 awg = gpib.find('awg520')

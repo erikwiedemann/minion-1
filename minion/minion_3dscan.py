@@ -25,6 +25,16 @@ class Minion3dscanUI(QWidget):
     def __init__(self, parent):
         super(Minion3dscanUI, self).__init__(parent)
         self.parent = parent
+        self.hardware_counter = self.parent.hardware_counter
+        self.hardware_laser = self.parent.hardware_laser
+        self.hardware_stage = self.parent.hardware_stage
+        if self.hardware_counter is True:
+            self.counter = self.parent.counter
+        if self.hardware_laser is True:
+            self.laser = self.parent.laser
+        if self.hardware_stage is True:
+            self.stage = self.parent.stage
+            self.stagelib = self.parent.stagelib
         self.xmin = 5.
         self.xmax = 10.
         self.xpos = 10.

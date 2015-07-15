@@ -22,7 +22,7 @@ class MinionMainWindow(QMainWindow):
         from minion.minion_hardware_check import CheckHardware
         self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib = CheckHardware.check(CheckHardware)
         # -------------------------------------------------------------------------------------------------------------
-        self.confocalwidget = confocal.MinionConfocalUi(self, self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib)
+        self.confocalwidget = confocal.MinionConfocalUi(self)
 
         self.setCentralWidget(self.confocalwidget)
         self.setDockOptions(QMainWindow.AnimatedDocks | QMainWindow.AllowNestedDocks | QMainWindow.AllowTabbedDocks)
@@ -47,7 +47,7 @@ class MinionMainWindow(QMainWindow):
         self.moduleexplorerdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.moduleexplorerdockWidget)
 
-        self.tracewidget = trace.MinionTraceUi(self, self.hardware_counter, self.counter)
+        self.tracewidget = trace.MinionTraceUi(self)
         self.tracewidgetdockWidget = QDockWidget(self)
         self.tracewidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.tracewidgetdockWidget.setWindowTitle('trace')

@@ -17,12 +17,12 @@ from matplotlib.figure import Figure
 
 
 class MinionTraceUi(QWidget):
-    def __init__(self, parent, hardware_counter, counter):
+    def __init__(self, parent):
         super(MinionTraceUi, self).__init__(parent)
         self.parent = parent
-        self.hardware_counter = hardware_counter
+        self.hardware_counter = self.parent.hardware_counter
         if self.hardware_counter is True:
-            self.counter = counter
+            self.counter = self.parent.counter
 
         # set initial parameters
         self.status = True   # True - allowed to measure, False - forbidden to measure (e.g. if counter is needed elsewhere)
