@@ -1,7 +1,7 @@
 import numpy as np
 import gpib
 import time
-
+import serial
 
 
 
@@ -25,8 +25,28 @@ print(powerliststring)
 print(':FREQ '+str(np.mean(freqlist)))
 print(':POW '+str(np.mean(powerlist))+'dBm')
 
+#connect fpga and smiq
+counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+fpgaclock = 80*10**6  # in Hz
+counttime_bytes = (int(0.005*fpgaclock)).to_bytes(4, byteorder='little')
+counter.write(b'T'+counttime_bytes)  # set counttime at fpga
+counter.write(b't')  # check counttime
+check_counttime = int.from_bytes(counter.read(4), byteorder='little')/fpgaclock
+print('\t fpga counttime:', check_counttime)
+print('\t counter connected')
 
 smiq = gpib.find('smiq06b')
+
+# enable triggered counting
+counterbins = res.to_bytes(2, byteorder='little')
+counter.write(b'R')  #EnableTriggeredCounting
+triggermask  = [0,0,0,1,0]
+counter.write(b'M'+bytes(str(triggermask)))  #SetTriggerMask
+counter.write(b'B'+counterbins)  #SetNumberOfTriggeredCountingBins
+counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBinRepetitions   - does this exist?
+
+counter.write(b'0')  #ResetTriggeredCountingData
+
 
 try:
     gpib.write(smiq, '*RST')
@@ -56,4 +76,10 @@ except:
     gpib.write(smiq, '*RST')
     gpib.close(smiq)
 
+counter.write(b'd')  #ReadTriggeredCountingData
+time.sleep(0.1)
+counter.read()
+counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
 
+# disable triggered counting
+counter.write(b'r')  #DisableTriggeredCounting
