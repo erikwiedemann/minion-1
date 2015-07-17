@@ -596,18 +596,33 @@ class MinionFindCenter(QObject):
                     apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
                     apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
                     xymapdataupdate[self.xyindexlist[0, i, 0], self.xyindexlist[0, i, 1]] = apd1_count + apd2_count
-            p0 = [1., self.resolution1/2., self.resolution2/2., self.resolution1/4., self.resolution2/4., 45., 0.1]
+            np.savetxt('xy.txt', xymapdataupdate)
+            p0 = [1., self.resolution2/2., self.resolution1/2., self.resolution2/4., self.resolution1/4., 45., 0.1]
             fitdata = xymapdataupdate/xymapdataupdate.max()
-            popt, pcov = opt.curve_fit(fit_fun, fitdata, np.ravel(fitdata), p0)
-            maxposx, maxposy = self.xpos-0.5+popt[1]*1./self.resolution1, self.ypos-0.5+popt[2]*1./self.resolution2
+            try:
+                popt, pcov = opt.curve_fit(fit_fun, fitdata, np.ravel(fitdata), p0)
+                print(popt)
+                maxposx, maxposy = self.xpos-0.5+(popt[2]+1.)*1./self.resolution1, self.ypos-0.5+(popt[1]+1.)*1./self.resolution2
+                print(maxposx, maxposy)
+            except:
+                print('fit did not converge')
+                maxposx, maxposy = self.xpos, self.ypos
+
             # maxposx, maxposy = np.unravel_index(xymapdataupdate.argmax(), xymapdataupdate.shape)
-            if abs(self.xpos-maxposx)<=0.5 and abs(self.ypos-maxposy)<=0.5:
-                self.xpos = self.xpos-0.5+maxposx*1./self.resolution1
+            if abs(self.xpos-maxposx)<=0.1 and abs(self.ypos-maxposy)<=0.1:
+                self.xpos = self.xpos-0.5+maxposx*1./self.resolution1+1
                 self.ypos = self.ypos-0.5+maxposy*1./self.resolution2
-                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), self.xyaxis1, self.stage)
-                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), self.xyaxis2, self.stage)
                 print('new pos:', self.xpos, self.ypos)
             else:
+                if maxposx < 0:
+                    self.xpos -= 0.1
+                else:
+                    self.xpos += 0.1
+                if maxposy < 0:
+                    self.ypos -= 0.1
+                else:
+                    self.ypos += 0.1
+
                 print('new pos too far off')
 
             self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, self.xpos, self.ypos, 0.)
