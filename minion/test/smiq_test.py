@@ -5,12 +5,12 @@ import serial
 
 
 
-res = 201
+res = 201   # max 4000
 freqmin = 2.8*10**9
 freqmax = 2.84*10**9
 power = -10  # -144 to +16 - better btw. -100 and +10
-dt = 0.005  # counttime
-adt = 0.01  # microwave settling time
+dt = 0.010  # counttime
+adt = 0.001  # microwave settling time
 
 
 freqlist = np.array(np.linspace(freqmin, freqmax, res))
@@ -39,17 +39,22 @@ smiq = gpib.find('smiq06b')
 
 # enable triggered counting
 counterbins = res.to_bytes(2, byteorder='little')
-counter.write(b'R')  #EnableTriggeredCounting
-triggermask  = [0,0,0,1,0]
-counter.write(b'M'+bytes(str(triggermask)))  #SetTriggerMask
 counter.write(b'B'+counterbins)  #SetNumberOfTriggeredCountingBins
+
+
+triggermask = 16
+triggerinvertmask = 16
+counter.write(b'M'+(16).to_bytes(1, byteorder='little'))  #SetTriggerMask
+counter.write(b'Q'+(16).to_bytes(1, byteorder='little'))  #SetTriggerinvertedMask
+
 counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBinRepetitions   - does this exist?
 
 counter.write(b'0')  #ResetTriggeredCountingData
+counter.write(b'R')  #EnableTriggeredCounting
 
 
 try:
-    gpib.write(smiq, '*RST')
+    gpib.write(smiq, '*RST') # nicht jedes mal machen - nur bei programmstart
     time.sleep(0.1)
     gpib.write(smiq, ':FREQ '+str(np.mean(freqlist)))
     gpib.write(smiq, ':POW '+str(np.mean(powerlist))+'dBm')
@@ -57,18 +62,21 @@ try:
 
     gpib.write(smiq, ':LIST:DELETE:ALL')
     gpib.write(smiq, ':LIST:SELECT \'CWODMR\'')
-    gpib.write(smiq, ':TRIG1:LIST:SOURCE SINGLE')
-    gpib.write(smiq, ':LIST:MODE AUTO')
+    gpib.write(smiq, ':TRIG1:LIST:SOURCE SINGLE')  # single trigger an liste
+    gpib.write(smiq, ':LIST:MODE AUTO')  # liste einmal durchfahren
     gpib.write(smiq, ':LIST:DWELL '+str(dt+adt))
 
     gpib.write(smiq, ':LIST:FREQ '+freqliststring)
     gpib.write(smiq, ':LIST:POW '+powerliststring)
+
 
     print('switching on microwave')
     gpib.write(smiq, ':OUTP:STATE 1')
     gpib.write(smiq, ':LIST:LEARN')
     gpib.write(smiq, ':FREQ:MODE LIST')
     gpib.write(smiq, '*WAI')
+    # hier ab und zu fragen ob er die liste gelernt hat - erst wenn fertig und auf FREQ?
+    gpib.write(smiq, ':TRIG:LIST')  # startet
 
 
 except:
@@ -78,7 +86,6 @@ except:
 
 counter.write(b'd')  #ReadTriggeredCountingData
 time.sleep(0.1)
-counter.read()
 counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
 
 # disable triggered counting
