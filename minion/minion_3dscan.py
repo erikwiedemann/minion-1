@@ -20,7 +20,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
-
+# TODO get min max pos zeug from parent via button click
 class Minion3dscanUI(QWidget):
     def __init__(self, parent):
         super(Minion3dscanUI, self).__init__(parent)
@@ -37,13 +37,13 @@ class Minion3dscanUI(QWidget):
             self.stagelib = self.parent.stagelib
         self.xmin = 5.
         self.xmax = 10.
-        self.xpos = 10.
+        self.xpos = 39.
         self.ymin = 5.
         self.ymax = 10.
-        self.ypos = 10.
+        self.ypos = 28.
         self.zmin = 5.
         self.zmax = 40.
-        self.zpos = 25.
+        self.zpos = 34.
         self.xlim = 75.
         self.ylim = 75.
         self.zlim = 50.
@@ -53,7 +53,7 @@ class Minion3dscanUI(QWidget):
         self.resolution1 = 21  # x
         self.resolution2 = 21  # y
         self.resolution3 = 21  # z
-        self.volumemapdata = np.zeros((self.resolution1, self.resolution2, self.resolution3))
+        self.volumemapdata = np.zeros((self.resolution3, self.resolution2, self.resolution1))
         # self.volumemapdata = np.zeros((self.resolution1, self.resolution2, self.resolution3))
         self.colormin = self.volumemapdata.min()
         self.colormax = self.volumemapdata.max()
@@ -72,7 +72,7 @@ class Minion3dscanUI(QWidget):
         self.volumemapaxes = self.volumemapfigure.add_subplot(111)
         self.volumemapaxes.hold(False)
 
-        self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[:, :, self.slice], origin='lower')# , extent=[self.xmin, self.xmax, self.ymin, self.ymax])
+        self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[self.slice, :, :], origin='lower')
         self.volumecolorbar = self.volumemapfigure.colorbar(self.volumemap, fraction=0.046, pad=0.04, cmap=mpl.cm.jet)
         self.volumecolorbar.formatter.set_scientific(True)
         self.volumecolorbar.formatter.set_powerlimits((0, 3))
@@ -83,12 +83,12 @@ class Minion3dscanUI(QWidget):
         self.volumemapaxes.yaxis.set_tick_params(direction='out')
 
         # SLIDER
-        self.sliderlabel = QLabel('y:')
+        self.sliderlabel = QLabel('z:')
 
         self.slider = QSlider(Qt.Horizontal, self)
         self.slider.setMinimum(0)
-        self.slider.setMaximum(self.resolution2-1)  # slide trough xz plane
-        self.slider.setTickInterval(int((self.resolution2)/10))
+        self.slider.setMaximum(self.resolution3-1)  # slide trough xy plane
+        self.slider.setTickInterval(int((self.resolution3)/10))
         self.slider.setValue(0)
         self.slider.setTickPosition(QSlider.TicksBelow)
         self.slider.valueChanged.connect(self.sliderchanged)
@@ -163,7 +163,9 @@ class Minion3dscanUI(QWidget):
 
         # Control and save
         self.volumescanstart = QPushButton('start scan')
+        self.volumescanstart.clicked.connect(self.volumemapstartclicked)
         self.volumescanstop = QPushButton('stop scan')
+        self.volumescanstop.clicked.connect(self.volumemapstopclicked)
         self.scanprogress = QProgressBar()
         self.scanprogresslabel = QLabel('est. t:')
         self.mapsavenametext = QLineEdit()
@@ -218,7 +220,7 @@ class Minion3dscanUI(QWidget):
 
     def sliderchanged(self):
         self.slice = self.slider.value()
-        self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[:, :, self.slice], origin='lower')
+        self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[self.slice, :, :], origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
         self.volumemapcanvas.draw()
 
     def minmaxtextchanged(self):
@@ -269,22 +271,41 @@ class Minion3dscanUI(QWidget):
 
     def volumemapstartclicked(self):
         print("[%s] start scan" % QThread.currentThread().objectName())
+        self.volumemapdata = np.zeros((self.resolution3, self.resolution2, self.resolution1))
         self.scanprogress.setRange(0, 100)
         self.scanprogress.setValue(0)
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage)
-            self.confocalthread = QThread(self, objectName='workerThread')
-            self.aquisition.moveToThread(self.confocalthread)
-            self.aquisition.finished.connect(self.confocalthread.quit)
+            self.volumeaquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.xpos, self.ypos, self.zpos, self.counter, self.stagelib, self.stage)
+            self.volumethread = QThread(self, objectName='workerThread')
+            self.volumeaquisition.moveToThread(self.volumethread)
+            self.volumeaquisition.finished.connect(self.volumethread.quit)
 
-            self.confocalthread.started.connect(self.aquisition.longrun)
-            self.confocalthread.finished.connect(self.confocalthread.deleteLater)
-            self.aquisition.update.connect(self.updatemap)
-            self.confocalthread.start()
+            self.volumethread.started.connect(self.volumeaquisition.longrun)
+            self.volumethread.finished.connect(self.volumethread.deleteLater)
+            self.volumeaquisition.update.connect(self.updatemap)
+            self.volumethread.start()
+
+    def volumemapstopclicked(self):
+        try:
+            print('abort scan')
+            self.volumeaquisition.stop()
+            self.volumethread.quit()
+        except:
+            print('no scan running')
 
     def volumemapsaveclicked(self):
-        pass
+        self.filename, *rest = self.mapsavenametext.text().split('.')
+        np.savetxt(str(os.getcwd())+'/data/'+str(self.filename)+'.txt', self.volumemapdata)
+        print('file saved to data folder')
+
+    @pyqtSlot(np.ndarray, int)
+    def updatemap(self, mapdataupdate, progress):
+        print('update plot')
+        self.volumemapdata = mapdataupdate
+        self.volumemap.set_extent([self.ymin, self.ymax, self.xmin, self.xmax])
+        self.sliderchanged()
+        self.scanprogress.setValue(progress)
 
 
 
@@ -299,7 +320,7 @@ class MinionVolumeMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution1, resolution2, resolution3, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage):
+    def __init__(self, resolution1, resolution2, resolution3, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, xpos, ypos, zpos, counter, stagelib, stage):
         super(MinionVolumeMapDataAquisition, self).__init__()
         self.resolution1 = resolution1
         self.resolution2 = resolution2
@@ -312,6 +333,9 @@ class MinionVolumeMapDataAquisition(QObject):
         self.ymax = ymax
         self.zmin = zmin
         self.zmax = zmax
+        self.xpos = xpos
+        self.ypos = ypos
+        self.zpos = zpos
         self.counter = counter
         self.stagelib = stagelib
         self.stage = stage
@@ -349,7 +373,7 @@ class MinionVolumeMapDataAquisition(QObject):
             self.list2 = np.reshape(dim2, (1, resolution1*resolution2*resolution3))
             self.list3 = np.reshape(dim3, (1, resolution1*resolution2*resolution3))
 
-            indexmat = np.indices((resolution1, resolution2, resolution3))
+            indexmat = np.indices((resolution3, resolution2, resolution1))
             self.indexlist = indexmat.reshape((1, 3, resolution1*resolution2*resolution3))
 
         self._isRunning = True
@@ -359,7 +383,7 @@ class MinionVolumeMapDataAquisition(QObject):
         self._isRunning = False
 
     def longrun(self):
-        volumemapdataupdate = np.zeros((self.resolution1, self.resolution2, self.resolution3))
+        volumemapdataupdate = np.zeros((self.resolution3, self.resolution2, self.resolution1))
         print("[%s] start scan" % QThread.currentThread().objectName())
         print('resolution:', self.resolution1, 'x', self.resolution2, 'x', self.resolution3)
 
@@ -400,7 +424,7 @@ class MinionVolumeMapDataAquisition(QObject):
                 apd2 = answer[4:]
                 apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
                 apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                volumemapdataupdate[self.indexlist[0, 2, i], self.indexlist[0, 3, i], self.indexlist[0, 1, i]] = apd1_count + apd2_count  # TODO - check if axis are correct
+                volumemapdataupdate[self.indexlist[0, 0, i], self.indexlist[0, 1, i], self.indexlist[0, 2, i]] = apd1_count + apd2_count  # TODO - check if axis are correct
 
                 if (i+1) % (self.resolution1*self.resolution2) == 0:
                     self.progress = int(100*i/(self.resolution1*self.resolution2*self.resolution3))
