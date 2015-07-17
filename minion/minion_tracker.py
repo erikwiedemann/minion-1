@@ -18,6 +18,10 @@ from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
 from matplotlib.patches import Rectangle
 
+from ctypes import *
+import serial
+
+
 
 class MinionTrackerUI(QWidget):
     def __init__(self, parent):
@@ -106,7 +110,11 @@ class MinionTrackerUI(QWidget):
         self.centeraxesyz.yaxis.set_tick_params(direction='out')
 
 
-        self.button = QPushButton('find center at crosshair pos')
+        self.findcenterbutton = QPushButton('find center at crosshair pos')
+        self.findcenterbutton.clicked.connect(self.findcenterclicked)
+        self.findcenterabortbutton = QPushButton('abort')
+        self.findcenterabortbutton.clicked.connect(self.findcenterabortclicked)
+
 
         # -------------------------------------------------------------------------------------------------------------
         # CONTEXT TRACKER
@@ -213,7 +221,8 @@ class MinionTrackerUI(QWidget):
         centertrackertablayout.addLayout(centertrackerplotbox, 0, 0)
 
 
-        centertrackertablayout.addWidget(self.button, 0, 1)
+        centertrackertablayout.addWidget(self.findcenterbutton, 0, 1)
+        centertrackertablayout.addWidget(self.findcenterabortbutton, 1, 1)
 
         # -------------------------------------------------------------------------------------------------------------
         # maptracker
@@ -249,6 +258,64 @@ class MinionTrackerUI(QWidget):
         trackerlayout = QGridLayout()
         trackerlayout.addWidget(self.tabs)
         self.setLayout(trackerlayout)
+
+    def findcenterclicked(self):
+        print("[%s] start scan" % QThread.currentThread().objectName())
+        if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
+            self.findcenter = MinionFindCenter(self.parent.counter, self.parent.stagelib, self.parent.stage, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos)
+            self.findcenterthread = QThread(self, objectName='workerThread')
+            self.findcenter.moveToThread(self.findcenterthread)
+            self.findcenter.finished.connect(self.findcenterthread.quit)
+
+            self.findcenterthread.started.connect(self.findcenter.longrun)
+            self.findcenterthread.finished.connect(self.findcenterthread.deleteLater)
+            self.findcenter.update.connect(self.updatefindcentermaps)
+            self.findcenterthread.start()
+
+    def findcenterabortclicked(self):
+        try:
+            print('abort center find')
+            self.findcenter.stop()
+            self.findcenterthread.quit()
+        except:
+            print('no center finder running')
+
+    @pyqtSlot(np.ndarray, np.ndarray, np.ndarray, float, float, float)
+    def updatefindcentermaps(self, xymapdataupdate, xzmapdataupdate, yzmapdataupdate, pos1, pos2, pos3):
+        # print("[%s] update" % QThread.currentThread().objectName())
+        self.xymapdata, self.xzmapdata, self.yzmapdata = xymapdataupdate.T, xzmapdataupdate.T, yzmapdataupdate.T
+        self.centermapxy.set_data(self.xymapdata)
+        self.xycolormin = self.xymapdata.min()
+        self.xycolormax = self.xymapdata.max()
+        self.centermapxy.set_clim(vmin=self.xycolormin, vmax=self.xycolormax)
+        self.centercolorbarxy.set_clim(vmin=self.xycolormin, vmax=self.xycolormax)
+        self.centercolorbarxy.draw_all()
+
+        self.centermapxz.set_data(self.xzmapdata)
+        self.xzcolormin = self.xzmapdata.min()
+        self.xzcolormax = self.xzmapdata.max()
+        self.centermapxz.set_clim(vmin=self.xzcolormin, vmax=self.xzcolormax)
+        self.centercolorbarxz.set_clim(vmin=self.xzcolormin, vmax=self.xzcolormax)
+        self.centercolorbarxz.draw_all()
+
+        self.centermapyz.set_data(self.yzmapdata)
+        self.yzcolormin = self.yzmapdata.min()
+        self.yzcolormax = self.yzmapdata.max()
+        self.centermapyz.set_clim(vmin=self.yzcolormin, vmax=self.yzcolormax)
+        self.centercolorbaryz.set_clim(vmin=self.yzcolormin, vmax=self.yzcolormax)
+        self.centercolorbaryz.draw_all()
+
+        self.centermapxy.set_extent([self.parent.confocalwidget.xpos-0.5, self.parent.confocalwidget.xpos+0.5, self.parent.confocalwidget.xpos-0.5, self.parent.confocalwidget.xpos+0.5])
+        self.centermapxz.set_extent([self.parent.confocalwidget.xpos-0.5, self.parent.confocalwidget.xpos+0.5, self.parent.confocalwidget.zpos-1., self.parent.confocalwidget.zpos+1.])
+        self.centermapyz.set_extent([self.parent.confocalwidget.ypos-0.5, self.parent.confocalwidget.ypos+0.5, self.parent.confocalwidget.zpos-1., self.parent.confocalwidget.zpos+1.])
+        self.centercanvasxy.draw()
+        self.centercanvasxz.draw()
+        self.centercanvasyz.draw()
+
+        # print(time.time()-start)
+
+
+
 
     def loadlastscan(self):
         filelist = os.listdir(os.getcwd()+'/scanhistory/')
@@ -308,7 +375,7 @@ class MinionTrackerUI(QWidget):
 
         self.contexttrackerthread.started.connect(self.contexttracker.longrun)
         self.contexttrackerthread.finished.connect(self.contexttrackerthread.deleteLater)
-        self.contexttracker.update.connect(self.updatemap)
+        self.contexttracker.update.connect(self.updatecontextmap)
         self.contexttrackerthread.start()
 
     def contexttrackerstopclicked(self):
@@ -319,7 +386,7 @@ class MinionTrackerUI(QWidget):
         except:
             print('no context tracker running')
 
-    def updatemap(self, mapdata, correlation, xcorr, ycorr, zcorr, status):
+    def updatecontextmap(self, mapdata, correlation, xcorr, ycorr, zcorr, status):
         tstart = time.time()
         self.contexttrackerinfo.append([xcorr, ycorr, zcorr, status])
         self.contexttrackertable.clearContents()
@@ -421,3 +488,242 @@ class MinionCenterTracker(QObject):
 
     def __init__(self, referencedata, data,  parent=None):
         super(MinionCenterTracker, self).__init__(parent)
+
+
+
+class MinionFindCenter(QObject):
+    started = pyqtSignal()
+    finished = pyqtSignal()
+    update = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, float, float, float)  # floats are corrections in x y z
+    wait = pyqtSignal()
+    goon = pyqtSignal()
+
+    def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
+        super(MinionFindCenter, self).__init__(parent)
+        self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
+        self.resolution1 = 11
+        self.resolution2 = 11
+        self.resolution3 = 21
+        self.counttime = 0.003
+        self.settlingtime = 0.003
+
+        # set count and settle times
+        self.fpgaclock = 80*10**6  # in Hz
+        self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
+        self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
+        self.counter.write(b't')  # check counttime
+        self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+        print('\t fpga counttime:', self.check_counttime)
+        print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
+
+        self._isRunning = True
+        print("[%s] create worker" % QThread.currentThread().objectName())
+
+    def stop(self):
+        self._isRunning = False
+
+
+    def longrun(self):
+        x = np.linspace(0, self.resolution1-1, self.resolution1)
+        y = np.linspace(0, self.resolution2-1, self.resolution2)
+        x, y = np.meshgrid(x, y)
+        def creategaussian(x, y, height, x0, y0, sigmax, sigmay, rot, offset):
+            phi = np.deg2rad(rot)
+            a = np.cos(phi)**2/(2.*sigmax**2) + np.sin(phi)**2/(2.*sigmay**2)
+            b = - np.sin(2.*phi)/(4.*sigmax**2) + np.sin(2.*phi)/(4.*sigmay**2)
+            c = np.sin(phi)**2/(2.*sigmax**2) + np.cos(phi)**2/(2.*sigmay**2)
+
+            fn = offset + height*np.exp(-(a*(x-x0)**2 + 2*b*(x-x0)*(y-y0) + c*(y-y0)**2))
+            return fn
+
+        def fit_fun(data, height, x0, y0, sigmax, sigmay, rot, offset):
+            guess = creategaussian(x, y, height, x0, y0, sigmax, sigmay, rot, offset)
+            return np.ravel(guess)
+
+        xymapdataupdate = np.zeros((self.resolution1, self.resolution2))
+        xzmapdataupdate = np.zeros((self.resolution1, self.resolution3))
+        yzmapdataupdate = np.zeros((self.resolution2, self.resolution3))
+        print("[%s] start scan" % QThread.currentThread().objectName())
+        print('looking for center at \t x:', self.xpos, 'y:', self.ypos, 'z:', self.zpos)
+        findstatus = False
+        tstart = time.time()
+        while not findstatus:
+            # xy input prep
+            xydim1 = np.linspace(self.xpos-0.5, self.xpos+0.5, self.resolution1)  # 1-x
+            xydim2 = np.linspace(self.ypos-0.5, self.ypos+0.5, self.resolution2)  # 2-y
+            self.xyaxis1 = 2
+            self.xyaxis2 = 1
+            self.xyaxis3 = 3
+            self.xystartpos1 = self.xpos-0.5
+            self.xystartpos2 = self.ypos-0.5
+            self.xystartpos3 = self.zpos
+
+            xydim1 = np.tile(xydim1, (1, self.resolution2))
+            xydim2 = np.tile(xydim2, (self.resolution1, 1))
+            xydim2 = xydim2.T
+            self.xylist1 = np.reshape(xydim1, (1, self.resolution1*self.resolution2))
+            self.xylist2 = np.reshape(xydim2, (1, self.resolution1*self.resolution2))
+            xyindexmat = np.indices((self.resolution1, self.resolution2))
+            xyindexmat = np.swapaxes(xyindexmat, 0, 2)
+            self.xyindexlist = xyindexmat.reshape((1, self.resolution1*self.resolution2, 2))
+
+            # XY scan
+            # MOVE TO START POSITION
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos1), self.xyaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos2), self.xyaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos3), self.xyaxis3, self.stage)
+            time.sleep(0.01)
+
+            for i in range(0, self.resolution1*self.resolution2):
+                if not self._isRunning:
+                    self.finished.emit()
+                    findstatus = True
+                else:
+                    # MOVE
+                    status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist1[0, i]), self.xyaxis1, self.stage)
+                    status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist2[0, i]), self.xyaxis2, self.stage)
+                    time.sleep(self.settlingtime)  # wait
+                    if (i+1) % self.resolution1 == 0:
+                        # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
+                        time.sleep(self.settlingtime*2)
+
+                    # COUNT
+                    self.counter.write(b'C')
+                    time.sleep(self.counttime*1.05)
+                    answer = self.counter.read(8)
+                    apd1 = answer[:4]
+                    apd2 = answer[4:]
+                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
+                    xymapdataupdate[self.xyindexlist[0, i, 0], self.xyindexlist[0, i, 1]] = apd1_count + apd2_count
+            p0 = [1., self.resolution1/2., self.resolution2/2., self.resolution1/4., self.resolution2/4., 45., 0.1]
+            fitdata = xymapdataupdate/xymapdataupdate.max()
+            popt, pcov = opt.curve_fit(fit_fun, fitdata, np.ravel(fitdata), p0)
+            maxposx, maxposy = self.xpos-0.5+popt[1]*1./self.resolution1, self.ypos-0.5+popt[2]*1./self.resolution2
+            # maxposx, maxposy = np.unravel_index(xymapdataupdate.argmax(), xymapdataupdate.shape)
+            if abs(self.xpos-maxposx)<=0.5 and abs(self.ypos-maxposy)<=0.5:
+                self.xpos = self.xpos-0.5+maxposx*1./self.resolution1
+                self.ypos = self.ypos-0.5+maxposy*1./self.resolution2
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), self.xyaxis1, self.stage)
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), self.xyaxis2, self.stage)
+                print('new pos:', self.xpos, self.ypos)
+            else:
+                print('new pos too far off')
+
+            self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, self.xpos, self.ypos, 0.)
+
+            # xz input prep
+            xzdim1 = np.linspace(self.xpos-0.5, self.xpos+0.5, self.resolution1)  # 1-x
+            xzdim2 = np.linspace(self.zpos-1., self.zpos+1., self.resolution3)  # 2-z
+            self.xzaxis1 = 2
+            self.xzaxis2 = 1
+            self.xzaxis3 = 3
+            self.xzstartpos1 = self.xpos-0.5
+            self.xzstartpos2 = self.ypos
+            self.xzstartpos3 = self.zpos-0.5
+
+            xzdim1 = np.tile(xzdim1, (1, self.resolution3))
+            xzdim2 = np.tile(xzdim2, (self.resolution1, 1))
+            xzdim2 = xzdim2.T
+            self.xzlist1 = np.reshape(xzdim1, (1, self.resolution1*self.resolution3))
+            self.xzlist2 = np.reshape(xzdim2, (1, self.resolution1*self.resolution3))
+            xzindexmat = np.indices((self.resolution1, self.resolution3))
+            xzindexmat = np.swapaxes(xzindexmat, 0, 2)
+            self.xzindexlist = xzindexmat.reshape((1, self.resolution1*self.resolution3, 2))
+
+            # XZ scan
+            # MOVE TO START POSITION
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos1), self.xzaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos2), self.xzaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos3), self.xzaxis3, self.stage)
+            time.sleep(0.01)
+
+            for i in range(0, self.resolution1*self.resolution3):
+                if not self._isRunning:
+                    self.finished.emit()
+                    findstatus = True
+                else:
+                    # MOVE
+                    status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xzlist1[0, i]), self.xzaxis1, self.stage)
+                    status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xzlist2[0, i]), self.xzaxis3, self.stage)
+                    time.sleep(self.settlingtime)  # wait
+                    if (i+1) % self.resolution1 == 0:
+                        # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
+                        time.sleep(self.settlingtime*2)
+
+                    # COUNT
+                    self.counter.write(b'C')
+                    time.sleep(self.counttime*1.05)
+                    answer = self.counter.read(8)
+                    apd1 = answer[:4]
+                    apd2 = answer[4:]
+                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
+                    xzmapdataupdate[self.xzindexlist[0, i, 0], self.xzindexlist[0, i, 1]] = apd1_count + apd2_count
+            self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
+
+            # yz input prep
+            yzdim1 = np.linspace(self.ypos-0.5, self.ypos+0.5, self.resolution2)  # 1-y
+            yzdim2 = np.linspace(self.zpos-1., self.zpos+1., self.resolution3)  # 2-z
+            self.yzaxis1 = 2
+            self.yzaxis2 = 1
+            self.yzaxis3 = 3
+            self.yzstartpos1 = self.xpos
+            self.yzstartpos2 = self.ypos-0.5
+            self.yzstartpos3 = self.zpos-0.5
+
+            yzdim1 = np.tile(yzdim1, (1, self.resolution3))
+            yzdim2 = np.tile(yzdim2, (self.resolution1, 1))
+            yzdim2 = yzdim2.T
+            self.yzlist1 = np.reshape(yzdim1, (1, self.resolution2*self.resolution3))
+            self.yzlist2 = np.reshape(yzdim2, (1, self.resolution2*self.resolution3))
+            yzindexmat = np.indices((self.resolution2, self.resolution3))
+            yzindexmat = np.swapaxes(yzindexmat, 0, 2)
+            self.yzindexlist = yzindexmat.reshape((1, self.resolution2*self.resolution3, 2))
+
+            # YZ scan
+            # MOVE TO START POSITION
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos1), self.yzaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos2), self.yzaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos3), self.yzaxis3, self.stage)
+            time.sleep(0.01)
+
+            for i in range(0, self.resolution2*self.resolution3):
+                if not self._isRunning:
+                    self.finished.emit()
+                    findstatus = True
+                else:
+                    # MOVE
+                    status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yzlist1[0, i]), self.yzaxis2, self.stage)
+                    status2 = self.stagelib.MCL_SingleWriteN(c_double(self.yzlist2[0, i]), self.yzaxis3, self.stage)
+                    time.sleep(self.settlingtime)  # wait
+                    if (i+1) % self.resolution2 == 0:
+                        # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
+                        time.sleep(self.settlingtime*2)
+
+                    # COUNT
+                    self.counter.write(b'C')
+                    time.sleep(self.counttime*1.05)
+                    answer = self.counter.read(8)
+                    apd1 = answer[:4]
+                    apd2 = answer[4:]
+                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
+                    yzmapdataupdate[self.yzindexlist[0, i, 0], self.yzindexlist[0, i, 1]] = apd1_count + apd2_count
+            self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
+            print('one round done')
+
+        self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), self.xyaxis1, self.stage)
+        status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), self.xyaxis2, self.stage)
+        status1 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), self.xyaxis3, self.stage)
+        xyfname = time.strftime('scanhistory/'+'%Y-%m-%d_%H-%M-%S')+'_scan_xy.txt'
+        xzfname = time.strftime('scanhistory/'+'%Y-%m-%d_%H-%M-%S')+'_scan_xz.txt'
+        yzfname = time.strftime('scanhistory/'+'%Y-%m-%d_%H-%M-%S')+'_scan_yz.txt'
+        np.savetxt(xyfname, xymapdataupdate)
+        np.savetxt(xzfname, xzmapdataupdate)
+        np.savetxt(yzfname, yzmapdataupdate)
+
+        print('total time needed:', time.time()-tstart)
+        print('thread done')
+        self.finished.emit()

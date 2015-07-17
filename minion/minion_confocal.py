@@ -711,7 +711,6 @@ class MinionColfocalMapDataAquisition(QObject):
                     self.axis2 = 1
                     self.startpos1 = self.xmin
                     self.startpos2 = self.ymin
-                    self.startpos2 = self.ymin
                     self.pos1 = self.xpos
                     self.pos2 = self.ypos
                 elif self.scanmode == 'xz':

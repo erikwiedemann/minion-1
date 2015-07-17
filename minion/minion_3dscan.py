@@ -274,6 +274,8 @@ class Minion3dscanUI(QWidget):
         self.volumemapdata = np.zeros((self.resolution3, self.resolution2, self.resolution1))
         self.scanprogress.setRange(0, 100)
         self.scanprogress.setValue(0)
+        self.slider.setMaximum(self.resolution3-1)  # slide trough xy plane
+        self.slider.setTickInterval(int((self.resolution3)/10))
 
         if self.hardware_stage is True and self.hardware_counter is True:
             self.volumeaquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.xpos, self.ypos, self.zpos, self.counter, self.stagelib, self.stage)
