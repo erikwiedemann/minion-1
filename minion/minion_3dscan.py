@@ -221,6 +221,11 @@ class Minion3dscanUI(QWidget):
     def sliderchanged(self):
         self.slice = self.slider.value()
         self.volumemap = self.volumemapaxes.matshow(self.volumemapdata[self.slice, :, :], origin='lower', extent=[self.xmin, self.xmax, self.ymin, self.ymax])
+        self.colormin = self.volumemapdata.min()
+        self.colormax = self.volumemapdata.max()
+        self.volumemap.set_clim(vmin=self.colormin, vmax=self.colormax)
+        self.volumecolorbar.set_clim(vmin=self.colormin, vmax=self.colormax)
+        self.colorbar.draw_all()
         self.volumemapcanvas.draw()
 
     def minmaxtextchanged(self):
@@ -298,7 +303,7 @@ class Minion3dscanUI(QWidget):
 
     def volumemapsaveclicked(self):
         self.filename, *rest = self.mapsavenametext.text().split('.')
-        np.savetxt(str(os.getcwd())+'/data/'+str(self.filename)+'.txt', self.volumemapdata)
+        np.save(str(os.getcwd())+'/data/'+str(self.filename)+'.npy', self.volumemapdata)
         print('file saved to data folder')
 
     @pyqtSlot(np.ndarray, int)

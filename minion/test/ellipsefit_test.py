@@ -23,9 +23,8 @@ def fit_fun(data, height, x0, y0, sigmax, sigmay, rot, offset):
 
 
 
-# map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33.txt')
+map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33.txt')
 
-map_original = np.loadtxt('xy.txt')
 # map_original = map_original[190:230, 18:30]
 
 # map_original = np.loadtxt('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/nv_x33_37_y30_05_z26_33_xz.txt')

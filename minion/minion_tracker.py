@@ -501,11 +501,11 @@ class MinionFindCenter(QObject):
     def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
         super(MinionFindCenter, self).__init__(parent)
         self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
-        self.resolution1 = 11
-        self.resolution2 = 11
-        self.resolution3 = 21
+        self.resolution1 = 7
+        self.resolution2 = 7
+        self.resolution3 = 11
         self.counttime = 0.003
-        self.settlingtime = 0.003
+        self.settlingtime = 0.01
 
         # set count and settle times
         self.fpgaclock = 80*10**6  # in Hz
@@ -546,17 +546,18 @@ class MinionFindCenter(QObject):
         print("[%s] start scan" % QThread.currentThread().objectName())
         print('looking for center at \t x:', self.xpos, 'y:', self.ypos, 'z:', self.zpos)
         findstatus = False
+
         tstart = time.time()
         while not findstatus:
+            # self.poserrorx = 0.
+            # self.poserrory = 0.
+            # self.poserrorz = 0.
             # xy input prep
             xydim1 = np.linspace(self.xpos-0.5, self.xpos+0.5, self.resolution1)  # 1-x
             xydim2 = np.linspace(self.ypos-0.5, self.ypos+0.5, self.resolution2)  # 2-y
             self.xyaxis1 = 2
             self.xyaxis2 = 1
             self.xyaxis3 = 3
-            self.xystartpos1 = self.xpos-0.5
-            self.xystartpos2 = self.ypos-0.5
-            self.xystartpos3 = self.zpos
 
             xydim1 = np.tile(xydim1, (1, self.resolution2))
             xydim2 = np.tile(xydim2, (self.resolution1, 1))
@@ -569,9 +570,9 @@ class MinionFindCenter(QObject):
 
             # XY scan
             # MOVE TO START POSITION
-            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos1), self.xyaxis1, self.stage)
-            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos2), self.xyaxis2, self.stage)
-            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.xystartpos3), self.xyaxis3, self.stage)
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist1[0, 0]), self.xyaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist2[0, 0]), self.xyaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.zpos), self.xyaxis3, self.stage)
             time.sleep(0.01)
 
             for i in range(0, self.resolution1*self.resolution2):
@@ -583,6 +584,12 @@ class MinionFindCenter(QObject):
                     status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist1[0, i]), self.xyaxis1, self.stage)
                     status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xylist2[0, i]), self.xyaxis2, self.stage)
                     time.sleep(self.settlingtime)  # wait
+                    # pos1 = self.stagelib.MCL_SingleReadN(self.xyaxis1, self.stage)
+                    # pos2 = self.stagelib.MCL_SingleReadN(self.xyaxis2, self.stage)
+                    # pos3 = self.stagelib.MCL_SingleReadN(self.xyaxis3, self.stage)
+                    # self.poserrorx += (self.xylist1[0, i] - pos1)
+                    # self.poserrory += (self.xylist2[0, i] - pos2)
+                    # self.poserrorz += (self.zpos - pos3)
                     if (i+1) % self.resolution1 == 0:
                         # when start new line wait a total of 3 x settlingtime before starting to count - TODO - add to gui
                         time.sleep(self.settlingtime*2)
@@ -596,34 +603,40 @@ class MinionFindCenter(QObject):
                     apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
                     apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
                     xymapdataupdate[self.xyindexlist[0, i, 0], self.xyindexlist[0, i, 1]] = apd1_count + apd2_count
-            np.savetxt('xy.txt', xymapdataupdate)
+            # print('error:', self.poserrorx/(11*11), self.poserrory/(11*11), self.poserrorz/(11*11))
+
             p0 = [1., self.resolution2/2., self.resolution1/2., self.resolution2/4., self.resolution1/4., 45., 0.1]
             fitdata = xymapdataupdate/xymapdataupdate.max()
             try:
                 popt, pcov = opt.curve_fit(fit_fun, fitdata, np.ravel(fitdata), p0)
-                print(popt)
-                maxposx, maxposy = self.xpos-0.5+(popt[2]+1.)*1./self.resolution1, self.ypos-0.5+(popt[1]+1.)*1./self.resolution2
-                print(maxposx, maxposy)
+                maxposx, maxposy = self.xpos-0.5+(popt[2])*1./self.resolution1, self.ypos-0.5+(popt[1])*1./self.resolution2
+                if abs(self.xpos-maxposx)<=0.1 and abs(self.ypos-maxposy)<=0.1:
+                    self.xpos = maxposx
+                    self.ypos = maxposy
+                    print('new pos:', self.xpos, self.ypos)
+                else:
+                    if abs(self.xpos-maxposx) <= 0.1:
+                        self.xpos = maxposx
+                    else:
+                        if maxposx < self.xpos:
+                            self.xpos -= 0.1
+                        else:
+                            self.xpos += 0.1
+                    if abs(self.ypos-maxposy) <= 0.1:
+                        self.ypos = maxposy
+                    else:
+                        if maxposy < self.ypos:
+                            self.ypos -= 0.1
+                        else:
+                            self.ypos += 0.1
+
+                    print('new pos too far off')
+                    print('new pos:', self.xpos, self.ypos)
+
             except:
                 print('fit did not converge')
-                maxposx, maxposy = self.xpos, self.ypos
 
             # maxposx, maxposy = np.unravel_index(xymapdataupdate.argmax(), xymapdataupdate.shape)
-            if abs(self.xpos-maxposx)<=0.1 and abs(self.ypos-maxposy)<=0.1:
-                self.xpos = self.xpos-0.5+maxposx*1./self.resolution1+1
-                self.ypos = self.ypos-0.5+maxposy*1./self.resolution2
-                print('new pos:', self.xpos, self.ypos)
-            else:
-                if maxposx < 0:
-                    self.xpos -= 0.1
-                else:
-                    self.xpos += 0.1
-                if maxposy < 0:
-                    self.ypos -= 0.1
-                else:
-                    self.ypos += 0.1
-
-                print('new pos too far off')
 
             self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, self.xpos, self.ypos, 0.)
 
@@ -633,9 +646,6 @@ class MinionFindCenter(QObject):
             self.xzaxis1 = 2
             self.xzaxis2 = 1
             self.xzaxis3 = 3
-            self.xzstartpos1 = self.xpos-0.5
-            self.xzstartpos2 = self.ypos
-            self.xzstartpos3 = self.zpos-0.5
 
             xzdim1 = np.tile(xzdim1, (1, self.resolution3))
             xzdim2 = np.tile(xzdim2, (self.resolution1, 1))
@@ -648,9 +658,9 @@ class MinionFindCenter(QObject):
 
             # XZ scan
             # MOVE TO START POSITION
-            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos1), self.xzaxis1, self.stage)
-            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos2), self.xzaxis2, self.stage)
-            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.xzstartpos3), self.xzaxis3, self.stage)
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xzlist1[0, 0]), self.xzaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.ypos), self.xzaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.xzlist2[0, 0]), self.xzaxis3, self.stage)
             time.sleep(0.01)
 
             for i in range(0, self.resolution1*self.resolution3):
@@ -683,12 +693,9 @@ class MinionFindCenter(QObject):
             self.yzaxis1 = 2
             self.yzaxis2 = 1
             self.yzaxis3 = 3
-            self.yzstartpos1 = self.xpos
-            self.yzstartpos2 = self.ypos-0.5
-            self.yzstartpos3 = self.zpos-0.5
 
             yzdim1 = np.tile(yzdim1, (1, self.resolution3))
-            yzdim2 = np.tile(yzdim2, (self.resolution1, 1))
+            yzdim2 = np.tile(yzdim2, (self.resolution2, 1))
             yzdim2 = yzdim2.T
             self.yzlist1 = np.reshape(yzdim1, (1, self.resolution2*self.resolution3))
             self.yzlist2 = np.reshape(yzdim2, (1, self.resolution2*self.resolution3))
@@ -698,9 +705,9 @@ class MinionFindCenter(QObject):
 
             # YZ scan
             # MOVE TO START POSITION
-            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos1), self.yzaxis1, self.stage)
-            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos2), self.yzaxis2, self.stage)
-            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.yzstartpos3), self.yzaxis3, self.stage)
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.xpos), self.yzaxis1, self.stage)
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.yzlist1[0, 0]), self.yzaxis2, self.stage)
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.yzlist2[0, 0]), self.yzaxis3, self.stage)
             time.sleep(0.01)
 
             for i in range(0, self.resolution2*self.resolution3):
@@ -726,6 +733,7 @@ class MinionFindCenter(QObject):
                     apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
                     yzmapdataupdate[self.yzindexlist[0, i, 0], self.yzindexlist[0, i, 1]] = apd1_count + apd2_count
             self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
+            xzmapdataupdate, yzmapdataupdate
             print('one round done')
 
         self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
