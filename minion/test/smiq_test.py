@@ -6,10 +6,10 @@ import serial
 
 
 res = 201   # max 4000
-freqmin = 2.8*10**9
-freqmax = 2.84*10**9
+freqmin = 2.86*10**9
+freqmax = 2.88*10**9
 power = -10  # -144 to +16 - better btw. -100 and +10
-dt = 0.010  # counttime
+dt = 0.10  # counttime
 adt = 0.001  # microwave settling time
 
 
@@ -76,6 +76,8 @@ try:
     gpib.write(smiq, ':FREQ:MODE LIST')
     gpib.write(smiq, '*WAI')
     # hier ab und zu fragen ob er die liste gelernt hat - erst wenn fertig und auf FREQ?
+    gpib.write(smiq, 'FREQ?')
+    gpib.read(smiq, 10)
     gpib.write(smiq, ':TRIG:LIST')  # startet
 
 
