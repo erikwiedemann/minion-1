@@ -3,10 +3,12 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons
 import scipy.ndimage as ndi
 
-data = np.zeros((10, 10, 10))
-data[5, 5, 5] = 10.
-data = ndi.filters.gaussian_filter(data, sigma=1)
-print(data.max())
+# data = np.zeros((10, 10, 10))
+# data[5, 5, 5] = 10.
+# data = ndi.filters.gaussian_filter(data, sigma=1)
+# print(data.max())
+data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/x34_60-35_60-y26_60-27_60-z20-40-tset5ms-tcou5ms.npy')
+
 
 def cube_show_slider(cube, axis=2, **kwargs):
     """

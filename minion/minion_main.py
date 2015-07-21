@@ -17,6 +17,7 @@ class MinionMainWindow(QMainWindow):
         import minion.minion_trace as trace
         import minion.minion_3dscan as volumescan
         import minion.minion_tracker as tracker
+        import minion.minion_cwodmr as cwodmr
 
         # hardware initialization etc
         from minion.minion_hardware_check import CheckHardware
@@ -39,7 +40,9 @@ class MinionMainWindow(QMainWindow):
         self.moduleexplorerwidget.tracechange.connect(self.tracechange)
         self.moduleexplorerwidget.volumescanchange.connect(self.volumescanchange)
         self.moduleexplorerwidget.trackerchange.connect(self.trackerchange)
+        self.moduleexplorerwidget.cwodmrchange.connect(self.cwodmrchange)
 
+        # initialize module UIs
         self.moduleexplorerdockWidget = QDockWidget(self)
         self.moduleexplorerdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
         self.moduleexplorerdockWidget.setWindowTitle('module explorer')
@@ -72,6 +75,16 @@ class MinionMainWindow(QMainWindow):
         self.trackerwidgetdockWidget.setWidget(self.trackerwidget)
         self.trackerwidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
         self.addDockWidget(Qt.RightDockWidgetArea, self.trackerwidgetdockWidget)
+        self.trackerwidgetdockWidget.hide()
+
+        self.cwodmrwidget = cwodmr.MinionCwodmrUI(self)
+        self.cwodmrwidgetdockWidget = QDockWidget(self)
+        self.cwodmrwidgetdockWidget.setFeatures(QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable)
+        self.cwodmrwidgetdockWidget.setWindowTitle('cwodmr')
+        self.cwodmrwidgetdockWidget.setWidget(self.cwodmrwidget)
+        self.cwodmrwidgetdockWidget.setAttribute(Qt.WA_DeleteOnClose)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.cwodmrwidgetdockWidget)
+        self.cwodmrwidgetdockWidget.hide()
 
         # -------------------------------------------------------------------------------------------------------------
         self.setWindowTitle("minion")
@@ -109,6 +122,13 @@ class MinionMainWindow(QMainWindow):
         else:
             self.trackerwidgetdockWidget.show()
 
+    @pyqtSlot()
+    def cwodmrchange(self):
+        if self.cwodmrwidgetdockWidget.isVisible():
+            self.cwodmrwidgetdockWidget.hide()
+        else:
+            self.cwodmrwidgetdockWidget.show()
+
 
 
 class MinionModuleexplorerUi(QWidget):
@@ -116,6 +136,7 @@ class MinionModuleexplorerUi(QWidget):
     tracechange = pyqtSignal()
     volumescanchange = pyqtSignal()
     trackerchange = pyqtSignal()
+    cwodmrchange = pyqtSignal()
 
     def __init__(self, parent=None):
         super(MinionModuleexplorerUi, self).__init__(parent)
@@ -131,7 +152,8 @@ class MinionModuleexplorerUi(QWidget):
         self.open_trace = QPushButton('trace')
         self.open_trace.clicked.connect(self.traceclicked)
 
-        self.open_odmr = QPushButton('cw-odmr')
+        self.open_cwodmr = QPushButton('cwodmr')
+        self.open_cwodmr.clicked.connect(self.cwodmrclicked)
 
         self.open_pulsepattern = QPushButton('pulsepattern')
 
@@ -153,7 +175,7 @@ class MinionModuleexplorerUi(QWidget):
         moduleexplorer_layout.addWidget(self.open_trace)
         moduleexplorer_layout.addWidget(self.open_3dscan)
         moduleexplorer_layout.addWidget(self.open_tracker)
-        moduleexplorer_layout.addWidget(self.open_odmr)
+        moduleexplorer_layout.addWidget(self.open_cwodmr)
         moduleexplorer_layout.addWidget(self.open_pulsepattern)
         moduleexplorer_layout.addWidget(self.open_pulsed)
         moduleexplorer_layout.addWidget(self.open_nuclearops)
@@ -174,6 +196,9 @@ class MinionModuleexplorerUi(QWidget):
 
     def trackerclicked(self):
         self.trackerchange.emit()
+
+    def cwodmrclicked(self):
+        self.cwodmrchange.emit()
 
 
 def build_minion_main_window():
