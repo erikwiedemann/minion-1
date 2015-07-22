@@ -47,7 +47,7 @@ triggerinvertmask = 16
 counter.write(b'M'+(16).to_bytes(1, byteorder='little'))  #SetTriggerMask
 counter.write(b'Q'+(16).to_bytes(1, byteorder='little'))  #SetTriggerinvertedMask
 
-counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBinRepetitions   - does this exist?
+counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBinRepetitions
 
 counter.write(b'0')  #ResetTriggeredCountingData
 counter.write(b'R')  #EnableTriggeredCounting

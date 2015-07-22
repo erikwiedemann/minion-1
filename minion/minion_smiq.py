@@ -45,7 +45,7 @@ class MinionSmiq06b(QObject):
             gpib.write(self.smiq, ':POW %f' % power)
 
 
-    def listinit(self, freqlist, powerlist, dt=0.010, adt=0.001):
+    def setlist(self, freqlist, powerlist, dt=0.010, adt=0.001):
         freqliststring = ', '.join(np.char.mod('%d', freqlist))
         powerliststring = 'dBm, '.join(np.char.mod('%d', powerlist))
 
