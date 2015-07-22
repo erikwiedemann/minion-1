@@ -186,7 +186,7 @@ class MinionCwodmrUI(QWidget):
 
             for i in range(1):
                 smiq.listrun(smiq)
-                time.sleep(len(self.freqlist)*0.011+1)
+                time.sleep(len(self.freqlist)*0.51+1)
 
                 self.counter.write(b'd')  #ReadTriggeredCountingData
                 time.sleep(0.1)
@@ -206,6 +206,10 @@ class MinionCwodmrUI(QWidget):
                 print(apd2_count)
                 test = apd1_count+apd2_count
                 print(test)
+            self.counter.write(b'a')
+            time.sleep(0.1)
+            test = self.counter.read(2)
+            print(int.from_bytes(test, byteorder='little'))
 
             smiq.cw(smiq, 2.87*10**9, -20)
             # disable triggered counting
