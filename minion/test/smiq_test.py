@@ -26,7 +26,7 @@ print(':FREQ '+str(np.mean(freqlist)))
 print(':POW '+str(np.mean(powerlist))+'dBm')
 
 #connect fpga and smiq
-counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 fpgaclock = 80*10**6  # in Hz
 counttime_bytes = (int(0.005*fpgaclock)).to_bytes(4, byteorder='little')
 counter.write(b'T'+counttime_bytes)  # set counttime at fpga
@@ -42,10 +42,10 @@ counterbins = res.to_bytes(2, byteorder='little')
 counter.write(b'B'+counterbins)  #SetNumberOfTriggeredCountingBins
 
 
-triggermask = 16
-triggerinvertmask = 16
-counter.write(b'M'+(16).to_bytes(1, byteorder='little'))  #SetTriggerMask
-counter.write(b'Q'+(16).to_bytes(1, byteorder='little'))  #SetTriggerinvertedMask
+triggermask = 8
+triggerinvertmask = 8
+counter.write(b'M'+(8).to_bytes(1, byteorder='little'))  #SetTriggerMask
+counter.write(b'Q'+(8).to_bytes(1, byteorder='little'))  #SetTriggerinvertedMask
 
 counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBinRepetitions
 
@@ -75,9 +75,9 @@ try:
     gpib.write(smiq, ':LIST:LEARN')
     gpib.write(smiq, ':FREQ:MODE LIST')
     gpib.write(smiq, '*WAI')
+    time.sleep(1)
     # hier ab und zu fragen ob er die liste gelernt hat - erst wenn fertig und auf FREQ?
-    gpib.write(smiq, 'FREQ?')
-    gpib.read(smiq, 10)
+
     gpib.write(smiq, ':TRIG:LIST')  # startet
 
 

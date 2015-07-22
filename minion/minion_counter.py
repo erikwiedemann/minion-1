@@ -24,7 +24,7 @@ class MinionCounter(QObject):
         time.sleep(0.1)
         self.counter.read(self.numbins*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
 
-    def settriggermasks(self, mask=16, invertedmask=16):
+    def settriggermasks(self, mask=8, invertedmask=8):
         self.counter.write(b'M'+mask.to_bytes(1, byteorder='little'))
         self.counter.write(b'Q'+invertedmask.to_bytes(1, byteorder='little'))
 

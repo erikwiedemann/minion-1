@@ -7,18 +7,30 @@ from PyQt5.QtCore import *
 class MinionSmiq06b(QObject):
     def __init__(self, parent=None):
         super(MinionSmiq06b, self).__init__(parent)
-        self.smiq = gpib.find('smiq06b')
-        gpib.write(self.smiq, '*RST')
 
     def __del__(self):
+        print('smiq disconnected')
         gpib.write(self.smiq, '*RST')
         gpib.close(self.smiq)
 
+    def disconnect(self):
+        gpib.write(self.smiq, '*RST')
+        gpib.close(self.smiq)
+        print('smiq disconnected')
+
+    def connect(self):
+        self.smiq = gpib.find('smiq06b')
+        gpib.write(self.smiq, '*RST')
+        print('smiq connected')
+
     def output(self):
-        return gpib.ask(self.smiq, ':OUTP?')
+        gpib.write(self.smiq, ':OUTP?')
+        return gpib.read(self.smiq, 256)
 
     def off(self):
-        if gpib.ask(self.smiq, ':FREQ:MODE?') == 'LIST':
+        gpib.write(self.smiq, ':FREQ:MODE?')
+        answer = gpib.read(self.smiq, 256)
+        if answer == 'LIST':
             gpib.write(self.smiq, ':FREQ:MODE CW')
         gpib.write(self.smiq, ':OUTP OFF')
         gpib.write(self.smiq, '*WAI')
@@ -29,25 +41,31 @@ class MinionSmiq06b(QObject):
 
     def power(self, power=None):
         if power != None:
-            gpib.write(self.smiq, ':POW %f' % power)
-        return float(gpib.ask(self.smiq, ':POW?'))
+            print(power)
+            gpib.write(self.smiq, ':POW '+str(power))
+            gpib.write(self.smiq, ':POW?')
+        return float(gpib.read(self.smiq, 256))
 
-    def freq(self, f=None):
-        if f != None:
-            gpib.write(self.smiq, ':FREQ %e' % f)
-        return float(gpib.ask(self.smiq, ':FREQ?'))
+    def freq(self, freq=None):
+        if freq != None:
+            gpib.write(self.smiq, ':FREQ '+str(freq))
+            gpib.write(self.smiq, '*WAI')
+            gpib.write(self.smiq, ':FREQ?')
+        return float(gpib.read(self.smiq, 256))
 
     def cw(self, freq=None, power=None):
         gpib.write(self.smiq, ':FREQ:MODE CW')
         if freq != None:
-            gpib.write(self.smiq, ':FREQ %e' % freq)
+            gpib.write(self.smiq, ':FREQ '+str(freq))
         if power != None:
-            gpib.write(self.smiq, ':POW %f' % power)
+            gpib.write(self.smiq, ':POW '+str(power))
 
 
     def setlist(self, freqlist, powerlist, dt=0.010, adt=0.001):
         freqliststring = ', '.join(np.char.mod('%d', freqlist))
         powerliststring = 'dBm, '.join(np.char.mod('%d', powerlist))
+        print(freqliststring)
+        print(powerliststring)
 
         gpib.write(self.smiq, ':FREQ:MODE CW')
         gpib.write(self.smiq, ':FREQ '+str(np.mean(freqlist)))
@@ -71,6 +89,10 @@ class MinionSmiq06b(QObject):
         time.sleep(1)
 
         gpib.write(self.smiq, ':FREQ:MODE LIST')
+
+    def listrun(self):
+        gpib.write(self.smiq, ':TRIG:LIST')  # startet
+
 
 
 
