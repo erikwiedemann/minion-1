@@ -92,3 +92,4 @@ counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
 
 # disable triggered counting
 counter.write(b'r')  #DisableTriggeredCounting
+counter.close()
