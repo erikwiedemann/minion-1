@@ -163,63 +163,106 @@ class MinionCwodmrUI(QWidget):
         if self.startcwodmrbutton.isChecked() is True:
             self.startcwodmrbutton.setStyleSheet("QPushButton {background-color: green;}")
             fpgaclock = 80*10**6  # in Hz
+            counttime_bytes = (int(0.01*fpgaclock)).to_bytes(4, byteorder='little')
+            self.counter.write(b'T'+counttime_bytes)  # set counttime at fpga
+
             self.counter.write(b't')  # check counttime
             check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
             print('counttime:', check_counttime)
 
             smiq.liston(smiq)
-            time.sleep(1.5)
-
+            time.sleep(2)
             self.counter.write(b'M'+(8).to_bytes(1, byteorder='little'))  #SetTriggerMask
             self.counter.write(b'Q'+(8).to_bytes(1, byteorder='little'))  #SetTriggerinvertedMask
             counterbins = (len(self.freqlist)).to_bytes(2, byteorder='little')
             self.counter.write(b'B'+counterbins)  #SetNumberOfTriggeredCountingBins
             self.counter.write(b'b')
-            print('num bins:', int.from_bytes(self.counter.read(20), byteorder='little'))
+            print('num bins:', int.from_bytes(self.counter.read(2), byteorder='little'))
 
             self.counter.write(b'K'+(1).to_bytes(2, byteorder='little'))  #SetTriggeredCountingBinRepetitions
+            self.counter.write(b'F'+(0).to_bytes(1, byteorder='little'))  #SetSplitTriggeredCountingBins
+
 
             self.counter.write(b'0')  #ResetTriggeredCountingData
+            time.sleep(0.00001)
             self.counter.write(b'R')  #EnableTriggeredCounting
+            # time.sleep(1)
+
+            self.cwodmrdata = np.zeros(len(self.freqlist))
+            # for i in range(2):
+            smiq.listrun(smiq)
 
 
+            time.sleep(len(self.freqlist)*0.011*0.5)
 
-            for i in range(1):
-                smiq.listrun(smiq)
-                time.sleep(len(self.freqlist)*0.51+1)
+            self.counter.write(b'a')
+            test = self.counter.read(2)
+            print('binpos:', int.from_bytes(test, byteorder='little'))
+            self.counter.write(b't')  # check counttime
+            check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
+            print('counttime:', check_counttime)
 
-                self.counter.write(b'd')  #ReadTriggeredCountingData
-                time.sleep(0.1)
-                print(len(self.freqlist))
-                countingbindata = self.counter.read(len(self.freqlist)*3*2)  #2=two apds, res=numbins, 3=bytes per bin
-                print(countingbindata)
-                countbinlist = [countingbindata[i:i+6] for i in range(0, len(countingbindata), 6)]
-                print(countbinlist)
-                apd1 = [bin[:3] for bin in countbinlist]
-                print(apd1)
+            time.sleep(len(self.freqlist)*0.011*0.5)
+            print(len(self.freqlist)*0.011)
 
-                apd2 = [bin[-3:] for bin in countbinlist]
-                print(apd2)
-                apd1_count = np.array([int.from_bytes(count1, byteorder='little') for count1 in apd1])
-                apd2_count = np.array([int.from_bytes(count2, byteorder='little') for count2 in apd2])
-                print(apd1_count)
-                print(apd2_count)
-                test = apd1_count+apd2_count
-                print(test)
+            self.counter.write(b'a')
+            test = self.counter.read(2)
+            print('binpos:', int.from_bytes(test, byteorder='little'))
+            self.counter.write(b't')  # check counttime
+            check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
+            print('counttime:', check_counttime)
+
+            time.sleep(len(self.freqlist)*0.011*0.5)
+
+            self.counter.write(b'a')
+            test = self.counter.read(2)
+            print('binpos:', int.from_bytes(test, byteorder='little'))
+            self.counter.write(b't')  # check counttime
+            check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
+            print('counttime:', check_counttime)
+
+            self.counter.write(b'r')  #DisableTriggeredCounting
+
+            self.counter.write(b'a')
+            test = self.counter.read(2)
+            print('binpos:', int.from_bytes(test, byteorder='little'))
+            self.counter.write(b't')  # check counttime
+            check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
+            print('counttime:', check_counttime)
+
+            self.counter.write(b'd')  #ReadTriggeredCountingData
+            # time.sleep(0.1)
+            countingbindata = self.counter.read(len(self.freqlist)*3*2)  #2=two apds, res=numbins, 3=bytes per bin
+
+            self.counter.write(b'a')
+            test = self.counter.read(2)
+            print('binpos:', int.from_bytes(test, byteorder='little'))
+            self.counter.write(b't')  # check counttime
+            check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
+            print('counttime:', check_counttime)
+
+            #self.counter.write(b'0')  #ResetTriggeredCountingData
+            countbinlist = [countingbindata[i:i+6] for i in range(0, len(countingbindata), 6)]
+            apd1 = [bin[:3] for bin in countbinlist]
+            apd2 = [bin[-3:] for bin in countbinlist]
+            apd1_count = np.array([int.from_bytes(count1, byteorder='little') for count1 in apd1])
+            apd2_count = np.array([int.from_bytes(count2, byteorder='little') for count2 in apd2])
+
+            self.cwodmrdata += apd1_count+apd2_count
+            print(self.cwodmrdata)
+
             self.counter.write(b'a')
             time.sleep(0.1)
             test = self.counter.read(2)
-            print(int.from_bytes(test, byteorder='little'))
+            print('binpos:', int.from_bytes(test, byteorder='little'))
 
             smiq.cw(smiq, 2.87*10**9, -20)
             # disable triggered counting
+
             self.counter.write(b'r')  #DisableTriggeredCounting
+            #self.counter.write(b'0')  #ResetTriggeredCountingData
 
 
-            time.sleep(0.1)
-            counttime_bytes = (int(0.005*fpgaclock)).to_bytes(4, byteorder='little') # TODO - change to current counttime
-            self.counter.write(b'T'+counttime_bytes)  # set counttime at fpga
-            time.sleep(0.1)
             self.counter.write(b't')  # check counttime
             check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/fpgaclock
             print('counttime:', check_counttime)

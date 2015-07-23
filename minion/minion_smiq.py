@@ -61,11 +61,9 @@ class MinionSmiq06b(QObject):
             gpib.write(self.smiq, ':POW '+str(power))
 
 
-    def setlist(self, freqlist, powerlist, dt=0.010, adt=0.5):
+    def setlist(self, freqlist, powerlist, dt=0.010, adt=0.001):
         freqliststring = ', '.join(np.char.mod('%d', freqlist))
         powerliststring = 'dBm, '.join(np.char.mod('%d', powerlist))
-        print(freqliststring)
-        print(powerliststring)
 
         gpib.write(self.smiq, ':FREQ:MODE CW')
         gpib.write(self.smiq, ':FREQ '+str(np.mean(freqlist)))
@@ -80,12 +78,14 @@ class MinionSmiq06b(QObject):
 
         gpib.write(self.smiq, ':LIST:FREQ '+freqliststring)
         gpib.write(self.smiq, ':LIST:POW '+powerliststring)
+        print('list set')
 
     def liston(self):
         gpib.write(self.smiq, ':OUTP ON')
         gpib.write(self.smiq, ':LIST:LEARN')
         gpib.write(self.smiq, ':FREQ:MODE LIST')
-        time.sleep(1)
+        gpib.write(self.smiq, '*WAI')
+
 
     def listrun(self):
         gpib.write(self.smiq, ':TRIG:LIST')  # startet
