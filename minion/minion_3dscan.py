@@ -225,7 +225,7 @@ class Minion3dscanUI(QWidget):
         self.colormax = self.volumemapdata.max()
         self.volumemap.set_clim(vmin=self.colormin, vmax=self.colormax)
         self.volumecolorbar.set_clim(vmin=self.colormin, vmax=self.colormax)
-        self.colorbar.draw_all()
+        self.volumecolorbar.draw_all()
         self.volumemapcanvas.draw()
 
     def minmaxtextchanged(self):

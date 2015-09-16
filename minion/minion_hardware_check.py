@@ -26,7 +26,7 @@ class CheckHardware(QObject):
 
         # check for hardware and set states
         try:
-            self.counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=10) #Lattice Lattice FTUSB Interface Cable
+            self.counter = serial.Serial('/dev/ttyUSB3', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=10) #Lattice Lattice FTUSB Interface Cable
             self.fpgaclock = 80*10**6  # in Hz
             self.counttime_bytes = (int(0.005*self.fpgaclock)).to_bytes(4, byteorder='little')
             self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
@@ -41,7 +41,7 @@ class CheckHardware(QObject):
             print('counter not connected at /dev/ttyUSB2')
 
         try:
-            self.laser = serial.Serial('/dev/ttyUSB2', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
             hardware_laser = True
         except serialutil.SerialException:
             self.laser = []
