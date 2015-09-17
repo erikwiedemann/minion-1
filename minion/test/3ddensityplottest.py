@@ -35,7 +35,8 @@ def bin_ndarray(ndarray, new_shape, operation='mean'):
 
 data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/x34_60-35_60-y26_60-27_60-z20-40-tset5ms-tcou5ms.npy')
 print(np.shape(data))
-data[:100, :, ] = 0
+data[:100, :, :] = 0
+data[155:, :, :] = 0
 # data = nd.filters.gaussian_filter(data, sigma=7)
 # data = np.round(data * 100000., decimals=0)
 
@@ -53,7 +54,7 @@ ax = fig.add_subplot(111, projection='3d')
 color = data[(threshlow < data).nonzero()]
 print(np.shape(color))
 print(color.min(), color.max())
-img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.3, depthshade=False, marker='.', s=200)
+img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.3, depthshade=False, marker='.', s=300)
 cb = plt.colorbar(img)
 ax.set_xlim([120, 155])
 ax.set_ylim([0, 21])
