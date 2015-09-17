@@ -6,7 +6,7 @@ ClearAll[$ODMRcontrolHost,$ODMRcontrolProgram,$ODMRcontrolProcess,
 	$ODMRmicrowaveSequencesDirectoryMounted,$ODMRnumCounters,$ODMRlink,$ODMRstage,
 	$ODMRcounter,$ODMRlaser,$ODMRsmiq,$ODMRawg,$ODMRLinkLock,$ODMRLinkLocked,
 	$ODMRLockLink,$ODMRfpgaClock,$ODMRdetectionDelay,
-	ConstructMathLinkConnectionString,InitODMR,DeinitODMR,
+	ConstructMathLinkConnectionString,InstallODMRlink,InitODMR,DeinitODMR,
 	GetCounterCountingTime,SetCounterCountingTime,CountCounters,GetCounterPredelay,
 	SetCounterPredelay,GetOutputs,SetOutputs,GetTriggerMask,SetTriggerMask,
 	GetTriggerInvertMask,SetTriggerInvertMask,GetNumberOfCounts,SetNumberOfCounts,
@@ -15,16 +15,19 @@ ClearAll[$ODMRcontrolHost,$ODMRcontrolProgram,$ODMRcontrolProcess,
 	GetTriggeredCountingBinRepetitions,SetTriggeredCountingBinRepetitions,
 	GetTriggeredCountingBinRepetitionCounter,SetSplitTriggeredCountingBins,
 	GetSplitTriggeredCountingBins,EnableTriggeredCounting,DisableTriggeredCounting,
-	TriggerCounter,	ReadTriggeredCountingData,ResetTriggeredCountingData,
+	TriggerCounter,ReadTriggeredCountingData,ResetTriggeredCountingData,
 	TrackConfocalMaximum,TrackerContext,TrackerContextQ,CountAndTrack,
 	ScanConfocalImage,CropConfocalImage,TransposeConfocalImage,PlotConfocalImage,
-	ConfocalImageColorLegend,ReadStage,MoveStage,GPIBcmd,GPIBqueryNumber,SerialCmd,
+	ExtractConfocalImage,SaveConfocalImage,ConfocalImageColorLegend,
+	ODMRmultiLineFit,AutoPeakFit,ODMRautoLineFit,
+	ReadStage,MoveStage,GPIBcmd,GPIBqueryNumber,SerialCmd,
 	SerialQueryNumber,SerialTMCqueryNumber,ScanConfocalVolume,FindNV,ReadAWGwfm,
 	WriteAWGwfm,ConstructMicrowaveSequence,EnableAOM,DisableAOM,SetLaserControlMode,
 	GetLaserControlMode,SetLaserCurrent,GetLaserCurrent,SetLaserPower,GetLaserPower,
-	GetLaserTemperature,GetLaserPSUtemperature,GetAWGwfmDuration,GetAWGwfmDurationAndClockRate,
-	ODMRTrace,ODMRautoTrack,ODMRcw,ODMRpulsed,ODMRrabi,MountMicroWaveSequencesDirectory,
-	UnmountMicroWaveSequencesDirectory,MicroWaveSequencesDirectoryMountedQ,ODMRmultiLineFit];
+	GetLaserTemperature,GetLaserPSUtemperature,GetAWGwfmDuration,
+	GetAWGwfmDurationAndClockRate,ODMRTrace,ODMRautoTrack,
+	ODMRcw,ODMRpulsed,ODMRrabi,MountMicroWaveSequencesDirectory,
+	UnmountMicroWaveSequencesDirectory,MicroWaveSequencesDirectoryMountedQ];
 $ODMRcontrolHost="nfp26";
 $ODMRcontrolProgram="/home/nfp/git/ODMRtools/ODMRLink/Default/ODMRLink";
 $ODMRsharedMemoryLinkName="ODMRLink_shm";
@@ -45,12 +48,9 @@ $ODMRgpibDefaultTimeout=12;
 ConstructMathLinkConnectionString[host_String,ports:{Integer__}]:=
 	StringJoin[Transpose[{Take[#,Length[#]-1],ConstantArray[",",Length[#]-1]}],#[[-1]]]&[
 		ToString[#]<>"@"<>host&/@ports];
-Options[InitODMR]={LocalControlPorts->{50503,50504},RemoteControlPorts->{50503,50504},
-	RemoteControlProgramPath->$ODMRcontrolProgram,RemoteControlHost->$ODMRcontrolHost,
-	CounterDevice->"/dev/ttyUSB2",CounterBaudrate->4000000,
-	LaserControlDevice->"/dev/ttyUSB0",LaserControlBaudrate->19200,
-	MicrowaveGPIBidentifier->"smiq06b",PulseSequencerGPIBidentifier->"awg520"};
-InitODMR[o:OptionsPattern[]]:=
+Options[InstallODMRlink]={LocalControlPorts->{50503,50504},RemoteControlPorts->{50503,50504},
+	RemoteControlProgramPath->$ODMRcontrolProgram,RemoteControlHost->$ODMRcontrolHost};
+InstallODMRlink[o:OptionsPattern[]]:=
 	Module[{localPorts=OptionValue[LocalControlPorts],remotePorts=OptionValue[RemoteControlPorts],
 			controlProgram=OptionValue[RemoteControlProgramPath],
 			remoteHost=OptionValue[RemoteControlHost]},
@@ -71,6 +71,18 @@ InitODMR[o:OptionsPattern[]]:=
 				LinkConnect[ConstructMathLinkConnectionString["localhost",localPorts],
 					LinkProtocol->"TCPIP"]];
 		Install[$ODMRlink];
+		{$ODMRcontrolProcess,$ODMRlink}
+	];
+Options[InitODMR]=Join[{
+	CounterDevice->"/dev/serial/by-id/usb-Lattice_Lattice_FTUSB_Interface_Cable-if01-port0",
+	CounterBaudrate->4000000,
+	LaserControlDevice->"/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller_D-if00-port0",
+	LaserControlBaudrate->19200,
+	MicrowaveGPIBidentifier->"smiq06b",PulseSequencerGPIBidentifier->"awg520"},
+	Options[InstallODMRlink]];
+InitODMR[o:OptionsPattern[]]:=
+	Module[{},
+		{$ODMRcontrolProcess,$ODMRlink}=InstallODMRlink[o];
 		$ODMRstage = MCLInitHandle[];
 		$ODMRcounter = SerialOpen[OptionValue[CounterDevice],OptionValue[CounterBaudrate]];
 		$ODMRlaser = SerialOpen[OptionValue[LaserControlDevice],OptionValue[LaserControlBaudrate]];
@@ -100,7 +112,7 @@ InitODMR[o:OptionsPattern[]]:=
 		GPIBcmd[$ODMRawg,"SOURCE2:MARKER2:VOLTAGE:HIGH 2"];
 		EnableAOM[];
 		{$ODMRcontrolProcess,$ODMRlink,$ODMRstage,$ODMRcounter,$ODMRlaser,$ODMRsmiq,$ODMRawg}
-];
+	];
 DeinitODMR[]:=(
 	If[NumberQ[$ODMRawg],GPIBCloseDevice[$ODMRawg];$ODMRawg=.];
 	If[NumberQ[$ODMRsmiq],GPIBCloseDevice[$ODMRsmiq];$ODMRsmiq=.];
@@ -312,9 +324,11 @@ CropConfocalImage[a_ConfocalImage,newOffset:{_?NumericQ,_?NumericQ},
 			1,Function[{off,area},
 				Take[Drop[#,Ceiling[(off/area)[[1]]Length[#]]],Floor[(newArea/area)[[1]]Length[#]]]&
 				/@Take[Drop[#,Ceiling[(off/area)[[2]]Length[#]]],Floor[(newArea/area)[[2]] Length[#]]]
-			][newOffset-("offset"/.a[[2]]),"area"/.a[[2]]],
-			2,#1/.{("offset"->_)->("offset"->newOffset),("area"->_)->("area"->newArea),
-				("pixels"->l_):>("pixels"->(l-{1,1}) newArea/("area"/.a[[2]])+{1,1})},
+			][newOffset-(1*^6*"offset"/.a[[2]]),1*^6*"area"/.a[[2]]],
+			2,#1/.{("offset"->_)->("offset"->1*^-6*newOffset),
+				("area"->_)->("area"->1*^-6*newArea),
+				("pixels"->l_):>("pixels"->(l-{1,1})*newArea/(1*^6*"area"/.a[[2]])
+					+{1,1})},
 			_,#1]&
 		,a];
 TransposeConfocalImage[a_ConfocalImage]:=
@@ -346,25 +360,27 @@ SerialTMCqueryNumber[dev_Integer?NonNegative,name_String]:=
 	NotebookEvaluate[nb];NotebookClose[nb]];*)
 Options[PlotConfocalImage]=Join[{MinCounts->Min,MaxCounts->Max,
 		ColorFunction->(ColorData["SunsetColors"][Clip[#1,{0,1}]]&),
-		ColorScaleFunction->Identity},Options[Graphics]];
+		ColorScaleFunction->Identity,ColorSteps->100},Options[Graphics]];
 PlotConfocalImage[data_ConfocalImage,options:OptionsPattern[]]:=
 	Function[{imageData,dataUnit,offset,area,lengthUnit,axes,min,max},
 		Module[{cf=Function[{f,g,h},f[g[h[#1]]]&][OptionValue[ColorFunction],
 					OptionValue[ColorScaleFunction],If[min!=max,(#-min)/(max-min)&,1/2&]]},
 			{Graphics[Raster[Map[List@@cf[#]&,imageData,{2}],{offset,offset+area}],
 				Sequence@@FilterRules[{options},Options[Graphics]],
-				ImageSize->96/25.4 100,Frame->True,
+				ImageSize->96/25.4*100,Frame->True,
 				FrameLabel->({"x","y","z"}[[#]]<>"("<>lengthUnit<>")"&/@axes)],
-			ConfocalImageColorLegend[{min,max},ColorFunction->cf,BarLabel->dataUnit]}]
+			ConfocalImageColorLegend[{min,max},ColorFunction->cf,BarLabel->dataUnit,
+				ColorSteps->OptionValue[ColorSteps]]}]
 	][10^-3 #1,"kCounts",10^6 #2,10^6 #3,"\[Mu]m",#4,
 	10^-3Function[{f,d},If[NumericQ[f],f,f[d]]][OptionValue[MinCounts],#1],
 	10^-3Function[{f,d},If[NumericQ[f],f,f[d]]][OptionValue[MaxCounts],#1]]&[
 		#[[1]],"offset"/.#[[2]],"area"/.#[[2]],Complement[Range[3],
 			Cases[#[[2]],(x:("X"|"Y"|"Z")->_):>Position[{"X","Y","Z"},x][[1,1]]]]]&[data];
 SetAttributes[PlotConfocalImage,Listable];
-ConfocalImageColorLegend[r:_?NumericQ|{_?NumericQ,_?NumericQ},
-		o:OptionsPattern[{AspectRatio->10,BarLabel->None,ColorSteps->100,RasterColorMap->False,
-			ColorFunction->Automatic}]]:=
+Options[ConfocalImageColorLegend]=
+	{AspectRatio->10,BarLabel->None,ColorSteps->100,RasterColorMap->False,
+			ColorFunction->Automatic};
+ConfocalImageColorLegend[r:_?NumericQ|{_?NumericQ,_?NumericQ},o:OptionsPattern[]]:=
 	Module[{range=If[Length[r]==2,r,{0,r}],ar=OptionValue[AspectRatio],
 			steps=OptionValue[ColorSteps],cf=OptionValue[ColorFunction],
 			rasterColorMap=OptionValue[RasterColorMap],nullRange},
@@ -381,6 +397,51 @@ ConfocalImageColorLegend[r:_?NumericQ|{_?NumericQ,_?NumericQ},
 			FrameLabel->{{None,OptionValue[BarLabel]},{None,None}},PlotRangePadding->None,
 			ImageMargins->None,ImagePadding->Automatic,AspectRatio->ar]
 	];
+Options[ExtractConfocalImage]={ZValue->0};
+ExtractConfocalImage[{data:Graphics[_Raster,___],
+		Graphics[Raster[{{{_,_,_}}..},{{0,low_},{1,high_}}],___]},
+		options:OptionsPattern[]]:=
+	ExtractConfocalImage[data,10^3 {low,high},options];
+ExtractConfocalImage[
+		Graphics[Raster[data:{{{_,_,_}..}..},range:{{_,_},{_,_}}],gOptions___],
+		scale:{_,_},options:OptionsPattern[]]:=
+	Module[{zAxis=Complement[{"X","Y","Z"},
+				Switch[#,"x(\[Mu]m)","X","y(\[Mu]m)","Y","z(\[Mu]m)","Z"]&
+				/@(FrameLabel/.{gOptions}/.FrameLabel->{"x(\[Mu]m)","y(\[Mu]m)"})][[1]],
+			x,y,g},
+		g=Function[#1,(1-#2)scale[[1]]+#2 scale[[2]]]&[y,
+			MapIndexed[Switch[#2[[1]],
+				1,{x/.Solve[#[[1]]==y,x][[1]],
+					#[[2]]/.{q_?NumberQ:>(#[[1]]/.x->q),x->y}}&/@#1,
+				2,x/.Solve[#1==y,x][[1]]]&,#]&
+			@Simplify@Function[{f,p,x},
+				Piecewise[{((#[[2]]-x)f[#[[1]]]+(x-#[[1]])f[#[[2]]])/(#[[2]]-#[[1]]),
+					#[[1]]<=x<#[[2]]}&/@#,x]&
+				@Transpose[{Drop[#,-1],Drop[#,1]}]&@Sort[p]
+			][ColorData["SunsetColors"][#][[2]]&,Range[0,1,1/6],x]];
+		ConfocalImage[Map[g[#[[2]]]&,data,{2}],
+			{"offset"->1*^-6*range[[1]],"area"->1*^-6*(range[[2]]-range[[1]]),
+				zAxis->OptionValue[ZValue]},""]];
+ExtractConfocalImage[g_Graphics,options:OptionsPattern[]]:=
+	ExtractConfocalImage[g,{0,1},options];
+ExtractConfocalImage[l_List,a___]:=ExtractConfocalImage[#,a]&/@l;
+Options[SaveConfocalImage]=
+	Join[{FileNamePrefix:>FileNameJoin[{NotebookDirectory[],"confocalScan"}]},
+		Options[ExtractConfocalImage]];
+SaveConfocalImage[g:{_Graphics,_Graphics},options:OptionsPattern[]]:=
+	Module[{axesNames={"X","Y","Z"},axes,zAxis,
+			image=ExtractConfocalImage[g,Sequence@@FilterRules[{options},
+				Options[ExtractConfocalImage]]]},
+		zAxis=Cases[image[[2]],
+			(axis:(Alternatives@@axesNames)->axisValue_):>
+				{Position[axesNames,axis][[1,1]],axisValue}][[1]];
+		axes=Transpose[{Complement[Range[3],{zAxis[[1]]}],
+			Transpose[10^6 {#1,#1+#2}]&@@({"offset","area"}/.image[[2]])}];
+		Export[OptionValue[FileNamePrefix]<>"_"
+			<>StringJoin[axesNames[[#[[1]]]]
+				<>StringJoin@Riffle[ToString/@#[[2]],"to"]<>"_"&/@axes]
+			<>axesNames[[zAxis[[1]]]]
+			<>ToString[zAxis[[2]]]<>".csv",image[[1]],"CSV"]];
 ScanConfocalVolume[xmin_?NumericQ,xmax_?NumericQ,
 		nx_Integer?Positive,ymin_?NumericQ,ymax_?NumericQ,ny_Integer?Positive,zmin_?NumericQ,zmax_?NumericQ,
 		nz_Integer?Positive,dt_?Positive,st_?NonNegative,o:OptionsPattern[]]:=
@@ -405,7 +466,7 @@ ScanConfocalVolume[xmin_?NumericQ,xmax_?NumericQ,
 Options[FindNV]=
 	{NumSamplesPerDirection->11,CountingTime->0.025,SettlingTime->0.001,
 		BackTraceTime->(10#&),ScanVolumeSize->{1,1,2},FindCycles->7/3,
-		MaxCoordinateError->0.25,MaxCoordinateCorrection->{0.5,0.5,1},MinimumRSquared->0.75};
+		MaxCoordinateError->0.25,MaxCoordinateCorrection->{0.75,0.75,2},MinimumRSquared->0.75};
 FindNV[{x0s_?NumericQ,y0s_?NumericQ,z0s_?NumericQ},o:OptionsPattern[]]:=
 	$ODMRLockLink[Module[
 		{i,dt0=GetCounterCountingTime[],dt=OptionValue[CountingTime],st=OptionValue[SettlingTime],
@@ -661,7 +722,8 @@ ConstructMicrowaveSequence[microwavePattern:{{_?NumericQ,__Function}..},
 				PlotStyle -> {Black, Green, Red}]&/@#,Sequence[]]}&
 ];
 
-EnableAOM[o:OptionsPattern[{MicrowaveSwitchEnabled->False}]]:=
+Options[EnableAOM]={MicrowaveSwitchEnabled->False};
+EnableAOM[o:OptionsPattern[]]:=
 	(GPIBcmd[$ODMRawg,"AWGCONTROL:STOP"];
 	GPIBcmd[$ODMRawg,"SOURCE2:FUNCTION:USER \"/"<>
 		If[OptionValue[MicrowaveSwitchEnabled]===True,
@@ -669,7 +731,8 @@ EnableAOM[o:OptionsPattern[{MicrowaveSwitchEnabled->False}]]:=
 	GPIBcmd[$ODMRawg,"AWGCONTROL:RMODE CONTINUOUS"];
 	GPIBqueryNumber[$ODMRawg,":FREQ"];
 	GPIBcmd[$ODMRawg,"AWGCONTROL:RUN"];);
-DisableAOM[o:OptionsPattern[{MicrowaveSwitchEnabled->False}]]:=
+Options[DisableAOM]={MicrowaveSwitchEnabled->False};
+DisableAOM[o:OptionsPattern[]]:=
 	(GPIBcmd[$ODMRawg,"AWGCONTROL:STOP"];
 	GPIBcmd[$ODMRawg,"SOURCE2:FUNCTION:USER \"/"<>
 		If[OptionValue[MicrowaveSwitchEnabled]===True,
@@ -809,7 +872,7 @@ Options[ODMRTrace]=Join[{HistoryLength->1000,LiveHistoryLength->1000,ReturnPlott
 			CountingTime->0.010,CountingSamples->10,TrackerDiscriminationFactors->{1.02,1.02,1.03},
 			TrackerStepFactor->0.1,TrackerEnabled->False,FixedAxes->None,ScannedImageData->Null,
 			MaxTraceTime->\[Infinity],LaserPowerMeter->Null,LaserControlMode->"power",
-			LaserPowerMeterFactor->0.34545454545454546`},Options[PlotConfocalImage]];
+			LaserPowerMeterFactor->0.368`},Options[PlotConfocalImage]];
 ODMRTrace[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null:Null,options:OptionsPattern[]]:=
 	Module[{
 			historyLength=OptionValue[HistoryLength],
@@ -871,7 +934,8 @@ ODMRTrace[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null:Null,options:OptionsPatte
 				imageZaxis=Complement[Range[3],imageAxes][[1]];
 				imageZvalue=ReadStage[][[imageZaxis]];
 			];{image,imageRange,imageAxes,imageZaxis,imageZvalue}]]/@
-			Switch[#,_ConfocalImage|_Graphics,{#},{(_ConfocalImage|_Graphics)..},#,_,{}]&@
+			Switch[#,_ConfocalImage|_Graphics|{_Graphics,_Graphics},{#},
+				{(_ConfocalImage|_Graphics|{_Graphics,_Graphics})..},#,_,{}]&@
 				OptionValue[ScannedImageData];
 		{x,y,z} = If[xyz0=!=Null,xyz0,
 			ReplacePart[#,Rule@@#[[1]]&/@GatherBy[images[[All,4;;5]],First]]&@ReadStage[]];
@@ -979,7 +1043,7 @@ Options[ODMRcw]=Join[{MicrowaveSwitchInstalled->True,LiveScanSync->False,History
 		TrackerStepFactor->0.1,ScannedImageData->Null,MicrowaveSettlingTime->0.001,
 		ScansBetweenAutoTracking->0,TimeBetweenAutoTracking->300,Autorun->False,
 		MaxScans->\[Infinity],MaxScanTime->\[Infinity],TrackerEnabled->False,
-		TrackingsBetweenScanReversal->5},
+		TrackingsBetweenScanReversal->5,SnapshotIntervall->\[Infinity],SnapshotFilePrefix->"ODMRcw"},
 	Options[ODMRautoTrack]];
 ODMRcw[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		frequencies:(_?NumericQ|{__?NumericQ}),power:(_?NumericQ|{__?NumericQ}),
@@ -1003,14 +1067,16 @@ ODMRcw[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			liveScanSync=(OptionValue[LiveScanSync]===True),
 			maxScans=If[NumericQ[#]\[Or]#===\[Infinity],#,0]&@OptionValue[MaxScans],
 			maxScanTime=If[NumericQ[#]\[Or]#===\[Infinity],#,0]&@OptionValue[MaxScanTime],
-			microwaveSwitchInstalled=(OptionValue[MicrowaveSwitchInstalled]===True)},
+			microwaveSwitchInstalled=(OptionValue[MicrowaveSwitchInstalled]===True),
+			snapshotIntervall=OptionValue[SnapshotIntervall],
+			snapshotFilePrefix=OptionValue[SnapshotFilePrefix]},
 		Module[{run=True,quit=False,relative=False,
-			showHistory=False,showError=False,x,y,z,c=0,cf=0,scans=0,
-			lastScanStartTime=-\[Infinity],accumulatedScanTime=0,
+			showHistory=False,showError=False,x,y,z,c=0,t,cf=0,scans=0,
+			lastScanStartTime=-\[Infinity],accumulatedScanTime=0,lastSnapshotTime=-\[Infinity],
 			timeOfLastAutoTrack=-\[Infinity],trackings=0,scanReversed=False,
 			microwaveActive,microwaveEnabled,stageRange,lastExport,dt0,data,dataSq,
 			paddedFrequencies,paddedPower,history={},historyIndices=Range[-historyLength,-1],
-			dataReadSucceeded,malformedDataReads=0,
+			dataReadSucceeded,malformedDataReads=0,generateOutput,
 			apdToShow=0,buffers=Array[0&,{3,3}],state={1,1},factors=iFactors,
 			steps=Transpose[({{stepSize,0,0},{0,stepSize,0},{0,0,stepSize}})],
 			activateMicrowave,deactivateMicrowave,enableMicrowave,disableMicrowave,
@@ -1070,6 +1136,16 @@ ODMRcw[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 	disableMicrowave=Function[If[microwaveEnabled\[Or](Initialize/.{##})===True,
 		EnableAOM[MicrowaveSwitchEnabled->False];
 		microwaveEnabled=False;]];
+	generateOutput=Function[{If[outputData,Transpose[{paddedFrequencies,data}],
+			ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,#}],
+				PlotRange->All]&/@Transpose[data]],
+		If[outputData,Transpose[{paddedFrequencies,dataSq}],
+			Map[ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,
+				scans #[[2]]-#[[1]]}],
+			PlotRange->All]&,Transpose[
+				{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
+					dataSq},{3,4,1,2}],{2}]],
+		{x,y,z},power,scans}];
 	stageRange=GetStageRange[];
 	deactivateMicrowave[Initialize->True];
 	{paddedFrequencies,paddedPower}=Switch[{#1,#2},
@@ -1156,7 +1232,10 @@ ODMRcw[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			ResetTriggeredCountingData[];
 			samplingFunction[\[Delta]&];
 			scans++;
-			accumulatedScanTime+=SessionTime[]-lastScanStartTime;
+			t=SessionTime[];
+			accumulatedScanTime+=t-lastScanStartTime;
+			If[t-lastSnapshotTime>=snapshotIntervall,lastSnapshotTime=t;
+				Export[snapshotFilePrefix<>"_"<>ToString[scans]<>".m",generateOutput[]]];
 			,
 			If[microwaveSwitchInstalled,disableMicrowave[],deactivateMicrowave[]];
 			DisableTriggeredCounting[];
@@ -1213,26 +1292,20 @@ ODMRcw[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 	deactivateMicrowave[];
 	DisableTriggeredCounting[];
 	SetCounterCountingTime[dt0];
-	{If[outputData,Transpose[{paddedFrequencies,data}],
-			ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,#}],
-				PlotRange->All]&/@Transpose[data]],
-		If[outputData,Transpose[{paddedFrequencies,dataSq}],
-			Map[ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,
-				scans #[[2]]-#[[1]]}],
-			PlotRange->All]&,Transpose[
-				{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
-					dataSq},{3,4,1,2}],{2}]],
-		{x,y,z},power,scans}
+	generateOutput[]
 ]]/;((#1==#2\[Or]#1==1\[Or]#2==1)&@@(If[ListQ[#],Length[#],1]&/@{frequencies,power}));
-Options[ODMRpulsed]=Join[{MicrowaveSwitchInstalled->True,LiveScanSync->False,OutputData->False,
-		HistoryLength->500,TrackerStepSize->0.025,TrackerMinimumStepSize->0.010,
-		CountingTime->0.010,MicrowaveSettlingTime->0.001,CountingSamples->10,FixedAxes->None,
+Options[ODMRpulsed]=Join[{MicrowaveSwitchInstalled->True,LiveScanSync->False,
+		OutputData->False,OutputRawData->False,HistoryLength->500,
+		TrackerStepSize->0.025,TrackerMinimumStepSize->0.010,CountingTime->0.010,
+		MicrowaveSettlingTime->0.001,CountingSamples->10,FixedAxes->None,
 		TrackerDiscriminationFactors->{1.02,1.02,1.03},TrackerStepFactor->0.1,
 		NormalizeCounts->False,NormalizationTriggerOffset->2.5*^-6,
 		SwapNormalizationReference->False,Autorun->False,TrackerEnabled->False,
-		ScansBetweenAutoTracking->0,TimeBetweenAutoTracking->300,TrackingsBetweenScanReversal->5,
-		MaxScans->\[Infinity],MaxScanTime->\[Infinity],OptimizeLaserOnOff->True,
-		PulsedCountingTime->300*^-9,CountRepetitions->Automatic,DetectionDelay:>$ODMRdetectionDelay},
+		ScansBetweenAutoTracking->0,TimeBetweenAutoTracking->300,
+		TrackingsBetweenScanReversal->5,MaxScans->\[Infinity],MaxScanTime->\[Infinity],
+		OptimizeLaserOnOff->True,PulsedCountingTime->300*^-9,
+		CountRepetitions->Automatic,DetectionDelay:>$ODMRdetectionDelay,
+		SnapshotIntervall->\[Infinity],SnapshotFilePrefix->"ODMRpulsed"},
 	Options[ODMRautoTrack],Options[ConstructMicrowaveSequence]];
 ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		frequencies:(_?NumericQ|{__?NumericQ}),power:(_?NumericQ|{__?NumericQ}),
@@ -1241,6 +1314,7 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 				If[OptionValue[NormalizeCounts]===True,2,1]*
 				(If[ListQ[#],Length[#],1]&/@{frequencies,power})],
 			outputData=(#===True)&@OptionValue[OutputData],
+			outputRawData=(#===True)&@OptionValue[OutputRawData],
 			dt=OptionValue[CountingTime],adt=OptionValue[MicrowaveSettlingTime],
 			numSamples=OptionValue[CountingSamples],stepSize=OptionValue[TrackerStepSize],
 			minimumStepSize=OptionValue[TrackerStepSize],
@@ -1268,10 +1342,13 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			maxScans=If[NumericQ[#]\[Or]#===\[Infinity],#,0]&@OptionValue[MaxScans],
 			maxScanTime=If[NumericQ[#]\[Or]#===\[Infinity],#,0]&@OptionValue[MaxScanTime],
 			microwaveSwitchInstalled=(OptionValue[MicrowaveSwitchInstalled]===True),
-			optimizeLaserOnOff=(OptionValue[OptimizeLaserOnOff]===True)},
+			optimizeLaserOnOff=(OptionValue[OptimizeLaserOnOff]===True),
+			snapshotIntervall=OptionValue[SnapshotIntervall],
+			snapshotFilePrefix=OptionValue[SnapshotFilePrefix]},
 		Module[{run=True,quit=False,relative=False,showHistory=False,showError=False,
-			x,y,z,c=0,cf=0,scans=0,stageRange,a,b,n,lastExport,dt0,data,dataSq,
+			x,y,z,c=0,t,cf=0,scans=0,stageRange,a,b,n,lastExport,dt0,data,dataSq,
 			lastScanStartTime=-\[Infinity],accumulatedScanTime=0,timeOfLastAutoTrack=-\[Infinity],
+			lastSnapshotTime=-\[Infinity],generateOutput,
 			apdToShow=0,normalizationViewMode="normalized",paddedFrequencies,paddedPower,
 			history={},historyIndices=Range[-historyLength,-1],
 			dataReadSucceeded,malformedDataReads=0,trackings=0,scanReversed=False,
@@ -1359,6 +1436,32 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		If[(EnableMicrowave/.{##}/.EnableMicrowave->False)===False,
 			disableMicrowave[##]];
 	]];
+	generateOutput=Function[{
+		If[outputData,Transpose[{paddedFrequencies,Transpose[#]}],
+			ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&/@#]&[		
+			If[splitTriggeredCountingBins,If[#[[2]]!=0,#[[1]]/#[[2]],0]&/@#,#]&
+				/@Transpose[data]],
+		If[outputData,Transpose[{paddedFrequencies,Transpose[#,{2,3,1}]}],
+			Map[ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,#,{2}]]&@Map[
+			If[splitTriggeredCountingBins,
+				Function[{Ea1,Eb1,Ea2,Eb2,Ea1a2,Ea1b2,Ea2b1,Eb1b2},
+					If[Eb1*Eb2!=0,
+						(Eb1*Eb2*Ea1a2+Ea1*Ea2*Eb1b2-Ea1*Eb2*Ea2b1-Ea2*Eb1*Ea1b2)/
+							(Eb1^2*Eb2^2),0]]@@Flatten[If[scans!=0,#/scans,0*#]]&/@#,
+						scans*#[[2]]-#[[1]]]&,If[splitTriggeredCountingBins,
+					Transpose[{Outer[List,#,#,1]&@Transpose[data,{3,1,2}], 
+						Transpose[dataSq,{5,1,2,3,4}]},{4,1,2,5,6,3}],
+					Transpose[{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
+						dataSq},{3,4,1,2}]],{2}],
+		If[splitTriggeredCountingBins,
+			If[outputData,Transpose[{paddedFrequencies,#}]&/@{data,dataSq},
+				{Map[ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,data,{2}],
+					Map[ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,dataSq,{3}]}],Sequence[]],
+		{x,y,z},power,scans}];
 	stageRange=GetStageRange[];
 	deactivateMicrowave[Initialize->True];
 	{paddedFrequencies,paddedPower}=Switch[{#1,#2},
@@ -1488,7 +1591,10 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			ResetTriggeredCountingData[];
 			samplingFunction[\[Delta]&];
 			scans++;
-			accumulatedScanTime+=SessionTime[]-lastScanStartTime;
+			t=SessionTime[];
+			accumulatedScanTime+=t-lastScanStartTime;
+			If[t-lastSnapshotTime>=snapshotIntervall,lastSnapshotTime=t;
+				Export[snapshotFilePrefix<>"_"<>ToString[scans]<>".m",generateOutput[]]];
 			,
 			If[microwaveSwitchInstalled,disableMicrowave[],deactivateMicrowave[]];
 			DisableTriggeredCounting[];
@@ -1544,7 +1650,7 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			If[splitTriggeredCountingBins,Sequence@@{
 					PopupMenu[Dynamic[normalizationViewMode],
 							{"normalized","unnormalized","reference"}],,
-					Row[{"outputRawData",Checkbox[Dynamic[outputData]]}]},
+					Row[{"outputRawData",Checkbox[Dynamic[outputRawData]]}]},
 				Sequence[]]}],
 		Row[{Row[{"run",Checkbox[Dynamic[run]]}],,
 			Row[{"scan",Checkbox[Dynamic[scan]]}],,
@@ -1565,23 +1671,7 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 	DisableTriggeredCounting[];
 	SetTriggeredCountingBinRepetitions[1];
 	SetCounterCountingTime[dt0];
-	{If[outputData,Transpose[{paddedFrequencies,data}],
-			ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,
-					If[splitTriggeredCountingBins,If[#[[2]]!=0,#[[1]]/#[[2]],0]&/@#,#]}],
-				PlotRange->All]&/@Transpose[data]],
-		If[outputData,Transpose[{paddedFrequencies,dataSq}],
-			Map[ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{paddedFrequencies,
-				If[splitTriggeredCountingBins,
-					Function[{Ea1,Eb1,Ea2,Eb2,Ea1a2,Ea1b2,Ea2b1,Eb1b2},If[Eb1*Eb2!=0,
-						(Eb1*Eb2*Ea1a2+Ea1*Ea2*Eb1b2-Ea1*Eb2*Ea2b1-Ea2*Eb1*Ea1b2)/
-						(Eb1^2*Eb2^2),0]]@@Flatten[If[scans!=0,#/scans,0*#]]&/@#,
-					scans*#[[2]]-#[[1]]]}],
-			PlotRange->All]&,If[splitTriggeredCountingBins,
-				Transpose[{Outer[List,#,#,1]&@Transpose[data,{3,1,2}], 
-					Transpose[dataSq,{5,1,2,3,4}]},{4,1,2,5,6,3}],
-				Transpose[{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
-					dataSq},{3,4,1,2}]],{2}]],
-		{x,y,z},power,scans}
+	generateOutput[]
 ]]/;((#1==#2\[Or]#1==1\[Or]#2==1)&@@(If[ListQ[#],Length[#],1]&/@{frequencies,power}));
 Options[ODMRrabi]=Join[{MicrowaveSwitchInstalled->True,HistoryLength->500,TrackerStepSize->0.025,
 		FixedAxes->None,TrackerMinimumStepSize->0.010,CountingTime->0.010,CountingSamples->10,
@@ -1592,7 +1682,7 @@ Options[ODMRrabi]=Join[{MicrowaveSwitchInstalled->True,HistoryLength->500,Tracke
 		OutputData->False,CountRepetitions->1,DetectionDelay:>$ODMRdetectionDelay,
 		ClockRate->Automatic,WaitTime->Automatic,OptimizeLaserOnOff->True,
 		MicrowaveEnabled->True,IQModulationEnabled->False,PulseModulationEnabled->False,
-		AWGprogrammingTimeout->14},
+		AWGprogrammingTimeout->14,SnapshotIntervall->\[Infinity],SnapshotFilePrefix->"ODMRrabi"},
 	Options[ODMRautoTrack]];
 ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		frequency_?NumericQ,power_?NumericQ,
@@ -1628,13 +1718,16 @@ ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			iqmod=(OptionValue[IQModulationEnabled]===True),
 			pulsemod=(OptionValue[PulseModulationEnabled]===True),
 			utilizeMicrowave=(OptionValue[MicrowaveEnabled]=!=False),
-			awgProgrammingTimeout=OptionValue[AWGprogrammingTimeout]},
+			awgProgrammingTimeout=OptionValue[AWGprogrammingTimeout],
+			snapshotIntervall=OptionValue[SnapshotIntervall],
+			snapshotFilePrefix=OptionValue[SnapshotFilePrefix]},
 		Module[{run=True,quit=False,relative=False,showHistory=False,showError=False,
 				scans=0,lastScanStartTime=-\[Infinity],accumulatedScanTime=0,
 				timeOfLastAutoTrack=-\[Infinity],apdToShow=0,dt0,pd0,
 				data,dataSq,stageRange,pulseLengths,n,a,lastExport,
 				awgConfigured=False,history={},historyIndices=Range[-historyLength,-1],
-				x,y,z,c=0,lastAutoTrackTime=-\[Infinity],lastAutoTrackScanCount=0,
+				x,y,z,c=0,t,lastAutoTrackTime=-\[Infinity],lastAutoTrackScanCount=0,
+				lastSnapshotTime=-\[Infinity],generateOutput,
 				normalizationViewMode="normalized",buffers=Array[0&,{3,3}],state={1,1},
 				steps=Transpose[stepSize IdentityMatrix[3]],factors=iFactors,
 				dataReadSucceeded,malformedDataReads=0,microwaveActive,microwaveEnabled,
@@ -1707,6 +1800,32 @@ ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		If[(EnableMicrowave/.{##}/.EnableMicrowave->False)===False,
 			disableMicrowave[##]];
 	]];
+	generateOutput=Function[{
+		If[outputData,Transpose[{pulseLengths,Transpose[#]}],
+			ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&/@#]&[		
+			If[splitTriggeredCountingBins,If[#[[2]]!=0,#[[1]]/#[[2]],0]&/@#,#]&
+				/@Transpose[data]],
+		If[outputData,Transpose[{pulseLengths,Transpose[#,{2,3,1}]}],
+			Map[ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,#,{2}]]&@Map[
+			If[splitTriggeredCountingBins,
+				Function[{Ea1,Eb1,Ea2,Eb2,Ea1a2,Ea1b2,Ea2b1,Eb1b2},
+					If[Eb1*Eb2!=0,
+						(Eb1*Eb2*Ea1a2+Ea1*Ea2*Eb1b2-Ea1*Eb2*Ea2b1-Ea2*Eb1*Ea1b2)/
+							(Eb1^2*Eb2^2),0]]@@Flatten[If[scans!=0,#/scans,0*#]]&/@#,
+						scans*#[[2]]-#[[1]]]&,If[splitTriggeredCountingBins,
+					Transpose[{Outer[List,#,#,1]&@Transpose[data,{3,1,2}], 
+						Transpose[dataSq,{5,1,2,3,4}]},{4,1,2,5,6,3}],
+					Transpose[{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
+						dataSq},{3,4,1,2}]],{2}],
+		If[splitTriggeredCountingBins,
+			If[outputData,Transpose[{pulseLengths,#}]&/@{data,dataSq},
+				{Map[ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,data,{2}],
+					Map[ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
+				PlotRange->All]&,dataSq,{3}]}],Sequence[]],
+		{x,y,z},frequency,power,scans}];
 	stageRange=GetStageRange[];
 	dt0=GetCounterCountingTime[];
 	SetCounterCountingTime[dt];
@@ -1809,7 +1928,10 @@ ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 			ResetTriggeredCountingData[];
 			samplingFunction[\[Delta]&];
 			scans++;
-			accumulatedScanTime+=SessionTime[]-lastScanStartTime;
+			t=SessionTime[];
+			accumulatedScanTime+=t-lastScanStartTime;
+			If[t-lastSnapshotTime>=snapshotIntervall,lastSnapshotTime=t;
+				Export[snapshotFilePrefix<>"_"<>ToString[scans]<>".m",generateOutput[]]];
 			,
 			If[microwaveSwitchInstalled,disableMicrowave[],deactivateMicrowave[]];
 			samplingFunction[countingFunction];
@@ -1888,23 +2010,7 @@ ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 	SetTriggeredCountingBinRepetitions[1];
 	SetCounterCountingTime[dt0];
 	SetCounterPredelay[pd0];
-	{If[outputData,Transpose[{pulseLengths,data}],
-		ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{pulseLengths,
-				If[splitTriggeredCountingBins,If[#[[2]]!=0,#[[1]]/#[[2]],0]&/@#,#]}],
-			PlotRange->All]&/@Transpose[data]],
-		If[outputData,Transpose[{pulseLengths,dataSq}],
-			Map[ListLinePlot[Sort[#,#1[[1]]<#2[[1]]&]&@Transpose[{pulseLengths,
-				If[splitTriggeredCountingBins,
-					Function[{Ea1,Eb1,Ea2,Eb2,Ea1a2,Ea1b2,Ea2b1,Eb1b2},If[Eb1*Eb2!=0,
-						(Eb1*Eb2*Ea1a2+Ea1*Ea2*Eb1b2-Ea1*Eb2*Ea2b1-Ea2*Eb1*Ea1b2)/
-						(Eb1^2*Eb2^2),0]]@@Flatten[If[scans!=0,#/scans,0*#]]&/@#,
-					scans*#[[2]]-#[[1]]]}],
-			PlotRange->All]&,If[splitTriggeredCountingBins,
-				Transpose[{Outer[List,#,#,1]&@Transpose[data,{3,1,2}], 
-					Transpose[dataSq,{5,1,2,3,4}]},{4,1,2,5,6,3}],
-				Transpose[{Transpose[#,{2,3,1}]&@Outer[Times,#,#,1]&@Transpose@data,
-					dataSq},{3,4,1,2}]],{2}]],
-		{x,y,z},power,scans}
+	generateOutput[]
 ]];
 
 ClearAll[NVmap,NVmapQ,StartNVmap,AdjustCurrentNVPosition,AutoAdjustCurrentNVPosition,
@@ -2244,3 +2350,75 @@ ODMRmultiLineFit[data:{{_?NumericQ,_?NumericQ}..},fEstimates:{_?NumericQ..},
 	]/;(Positive[wEstimate]\[Or]ListQ[wEstimate]\[And]Length[wEstimate]==Length[fEstimates])\[And]
 		(NumericQ[cEstimate]\[Or]ListQ[cEstimate]\[And]Length[cEstimate]==Length[fEstimates]);
 
+Options[AutoPeakFit]={PeakModel->"Lorentz",ExpectedFWHM->2*^6,
+	BackgroundWidth->4,MinContrast->{0.005,0.005},MaxPeaks->5};
+AutoPeakFit[data:{{_,__}..},options:OptionsPattern[]]:=
+	Module[{peakModelFunction=Switch[OptionValue[PeakModel],
+				"Lorentz",Function[{\[Omega],\[Omega]0,\[CapitalGamma]},
+					1/(Norm[(\[Omega]-\[Omega]0)/\[CapitalGamma]/2]^2+1)],
+				"Gauss",Function[{\[Omega],\[Omega]0,\[CapitalGamma]},
+					Exp[-Norm[(\[Omega]-\[Omega]0)/(\[CapitalGamma]/2)]^2*Log[2]]]],
+			expectedFWHM=OptionValue[ExpectedFWHM],
+			backgroundWidth=OptionValue[BackgroundWidth],
+			minContrast=Switch[#,{_,_},#,_,{#,#}]&@OptionValue[MinContrast], 
+			maxPeaks=Switch[#,All,\[Infinity],None,0,_,#]&@OptionValue[MaxPeaks]}, 
+		Module[{fitFunction=Function[dataToFit,
+						Function[{minData,maxData},
+							Module[{bg0=Mean[Last/@dataToFit]},
+								Function[fit,If[fit=!=Null,
+									Module[{\[Omega]0=First/@Drop[
+												fit["ParameterTableEntries"],-3],
+											\[CapitalGamma]=Abs@fit[
+												"ParameterTableEntries"][[-3,1]], 
+											bg=fit["ParameterTableEntries"][[-2, 1]]},
+										{If[Norm[Most[#]-\[Omega]0,\[Infinity]]
+												<=\[CapitalGamma]*backgroundWidth, 
+											MapAt[Function[v,v-fit@@Most[#]+bg],
+												#,-1],#]&/@dataToFit,fit}],
+									{data,}]]@
+                 				If[Length[#]>0,Function[potentialPeak, 
+					                    Module[{\[Omega]=Unique["\[Omega]$"]&/@ 
+													Range[Length[potentialPeak]-1],
+												\[Omega]0 =Unique["\[Omega]0$"]&/@ 
+													Range[Length[potentialPeak]-1],
+												\[CapitalGamma],bg,c},
+											If[Length[#]>2,
+												NonlinearModelFit[#, 
+													bg*(1+c*peakModelFunction[\[Omega],
+ 														\[Omega]0,\[CapitalGamma]]), 
+								                    Join[Transpose[{\[Omega]0,
+															Most[potentialPeak]}],
+														{{\[CapitalGamma],expectedFWHM},
+															{bg, bg0},
+															{c,Last[potentialPeak]/bg0-1}
+														}],
+												\[Omega]]]&@Select[dataToFit,
+													Norm[Most[#]-Most[potentialPeak],
+														\[Infinity]]<=
+														expectedFWHM*backgroundWidth&]]
+									][#[[-1]]]]&@
+								SortBy[First/@#,Abs[Last[#]/bg0-1]&]&@
+								Select[Transpose[{{maxData,minData},minContrast}], 
+									Abs[Last[#[[1]]]/bg0-1]>=#[[2]]&]]
+						][#[[1]],#[[-1]]]&@SortBy[dataToFit, Last]],
+				peaksFound = 0}, 
+			NestWhile[Function[r,
+					If[#[[2]]=!=Null,peaksFound++;
+						Append[ReplacePart[r, 1 -> #[[1]]], #[[2]]],r]&@
+					fitFunction[r[[1]]]],{data},
+				Length[#1]<Length[#2]\[And]peaksFound< maxPeaks &,2]]];
+AutoPeakFit[data_Graphics,options:OptionsPattern[]]:= 
+	Module[{gPrimitive=Head[#]}, 
+		AutoPeakFit[#[[1]],options]
+		//{Switch[gPrimitive,Line,ListLinePlot,Point,ListPlot][#[[1]],PlotRange->All],
+			{#["ParameterTable"],#["RSquared"],
+				RootMeanSquare[#["FitResiduals"]]/#["ParameterTableEntries"][[3, 1]]}&/@
+			Rest[#]}&]&/@Cases[data,p:(Line|Point)[l_List/;Length[l]>2]:>p,\[Infinity]];
+Options[ODMRautoLineFit]=Options[AutoPeakFit];
+ODMRautoLineFit[data:(_Graphics|{{_?NumericQ,_?NumericQ}..}),options:OptionsPattern[]]:=
+	If[ListQ[data],#1[#2],#1/@#2]&[
+		If[Length[#[[2]]]>0,
+			ODMRmultiLineFit[data,#[[2,All,1,1,1,2,2]],#[[2,All,1,1,1,3,2]],
+			Abs@#[[2,All,1,1,1,5,2]]],data]&,
+		AutoPeakFit[data,options]];
+ODMRautoLineFit[data_List,options:OptionsPattern[]]:=ODMRautoLineFit[#,options]&/@data;

@@ -41,7 +41,6 @@ smiq = gpib.find('smiq06b')
 counterbins = res.to_bytes(2, byteorder='little')
 counter.write(b'B'+counterbins)  #SetNumberOfTriggeredCountingBins
 
-
 triggermask = 8
 triggerinvertmask = 8
 counter.write(b'M'+(8).to_bytes(1, byteorder='little'))  #SetTriggerMask
