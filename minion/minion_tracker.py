@@ -262,7 +262,7 @@ class MinionTrackerUI(QWidget):
     def findcenterclicked(self):
         print("[%s] start scan" % QThread.currentThread().objectName())
         if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
-            self.findcenter = MinionFindCenter(self.parent.counter, self.parent.stagelib, self.parent.stage, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos)
+            self.findcenter = MinionFindCenter(self.parent.fpga, self.parent.stagelib, self.parent.stage, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos)
             self.findcenterthread = QThread(self, objectName='workerThread')
             self.findcenter.moveToThread(self.findcenterthread)
             self.findcenter.finished.connect(self.findcenterthread.quit)
@@ -485,9 +485,9 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
     wait = pyqtSignal()
     goon = pyqtSignal()
 
-    def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
+    def __init__(self, fpga, stagelib, stage, xpos, ypos, zpos,  parent=None):
         super(MinionCenterTracker, self).__init__(parent)
-        self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
+        self.fpga, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = fpga, stagelib, stage, xpos, ypos, zpos
         self.stepsize = 5 # um - change to 0.05
         self.stepsize_corse = 0.1  # um
         self.stepsize_fine = 0.01  # um
@@ -501,7 +501,7 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
         init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
         init_node = data[init_coord[0], init_coord[1]]  # for reference
 
-        self.counter.setcountingtime(self.counter, counttime=0.005)
+        self.fpga.setcountingtime(counttime=0.005)
 
 
 class MinionFindCenter(QObject):
@@ -511,9 +511,9 @@ class MinionFindCenter(QObject):
     wait = pyqtSignal()
     goon = pyqtSignal()
 
-    def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
+    def __init__(self, fpga, stagelib, stage, xpos, ypos, zpos,  parent=None):
         super(MinionFindCenter, self).__init__(parent)
-        self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
+        self.fpga, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = fpga, stagelib, stage, xpos, ypos, zpos
         self.resolution1 = 9
         self.resolution2 = 9
         self.resolution3 = 11
@@ -521,13 +521,11 @@ class MinionFindCenter(QObject):
         self.settlingtime = 0.01
 
         # set count and settle times
-        self.fpgaclock = 80*10**6  # in Hz
-        self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-        self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-        self.counter.write(b't')  # check counttime
-        self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+        self.fpga.setcountingtime(self.counttime)
+        self.check_counttime = self.fpga.checkcounttime()
         print('\t fpga counttime:', self.check_counttime)
-        print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
+        print('\t counttime:', self.counttime)
+        print('\t settlingtime:', self.settlingtime)
 
         self._isRunning = True
         print("[%s] create worker" % QThread.currentThread().objectName())
@@ -608,14 +606,8 @@ class MinionFindCenter(QObject):
                         time.sleep(self.settlingtime*2)
 
                     # COUNT
-                    self.counter.write(b'C')
-                    time.sleep(self.counttime*1.05)
-                    answer = self.counter.read(8)
-                    apd1 = answer[:4]
-                    apd2 = answer[4:]
-                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
-                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                    xymapdataupdate[self.xyindexlist[0, i, 0], self.xyindexlist[0, i, 1]] = apd1_count + apd2_count
+                    apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
+                    xymapdataupdate[self.xyindexlist[0, i, 0], self.xyindexlist[0, i, 1]] = apd_sum
             # print('error:', self.poserrorx/(11*11), self.poserrory/(11*11), self.poserrorz/(11*11))
 
             p0 = [1., self.resolution2/2., self.resolution1/2., self.resolution2/4., self.resolution1/4., 45., 0.1]
@@ -690,14 +682,8 @@ class MinionFindCenter(QObject):
                         time.sleep(self.settlingtime*2)
 
                     # COUNT
-                    self.counter.write(b'C')
-                    time.sleep(self.counttime*1.05)
-                    answer = self.counter.read(8)
-                    apd1 = answer[:4]
-                    apd2 = answer[4:]
-                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
-                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                    xzmapdataupdate[self.xzindexlist[0, i, 0], self.xzindexlist[0, i, 1]] = apd1_count + apd2_count
+                    apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
+                    xzmapdataupdate[self.xzindexlist[0, i, 0], self.xzindexlist[0, i, 1]] = apd_sum
             self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
 
             # yz input prep
@@ -737,16 +723,9 @@ class MinionFindCenter(QObject):
                         time.sleep(self.settlingtime*2)
 
                     # COUNT
-                    self.counter.write(b'C')
-                    time.sleep(self.counttime*1.05)
-                    answer = self.counter.read(8)
-                    apd1 = answer[:4]
-                    apd2 = answer[4:]
-                    apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
-                    apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                    yzmapdataupdate[self.yzindexlist[0, i, 0], self.yzindexlist[0, i, 1]] = apd1_count + apd2_count
+                    apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
+                    yzmapdataupdate[self.yzindexlist[0, i, 0], self.yzindexlist[0, i, 1]] = apd_sum
             self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
-            xzmapdataupdate, yzmapdataupdate
             print('one round done')
 
         self.update.emit(xymapdataupdate, xzmapdataupdate, yzmapdataupdate, 0., 0., 0.)
