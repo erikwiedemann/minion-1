@@ -122,11 +122,8 @@ class MinionTraceUi(QWidget):
         self.updatetime = self.updatetimetext.value()
 
         if self.hardware_counter is True:
-            self.fpgaclock = 80*10**6  # in Hz
-            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-            self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+            self.parent.fpga.setcountingtime(self.counttime)
+            self.check_counttime = self.parent.fpga.checkcounttime()
             print('\t fpga counttime:', self.check_counttime)
         print('counttime:', self.counttime)
 
@@ -164,7 +161,7 @@ class MinionTraceUi(QWidget):
             self.tracefigure.canvas.draw()
             self.traceaxes.grid()
 
-            self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime, self.counter)
+            self.traceaquisition = MinionTraceAquisition(self.counttime, self.updatetime, self.parent.fpga)
             self.tracethread = QThread(self, objectName='TraceThread')
             self.traceaquisition.moveToThread(self.tracethread)
             self.traceaquisition.tracestop.connect(self.tracethread.quit)
@@ -259,12 +256,12 @@ class MinionTraceAquisition(QObject):
     tracestop = pyqtSignal()
     updatetrace = pyqtSignal(np.ndarray, np.ndarray, np.ndarray)
 
-    def __init__(self, counttime, updatetime, counter):
+    def __init__(self, counttime, updatetime, fpga):
         super(MinionTraceAquisition, self).__init__()
         self._isRunning = True
 
         print("[%s] create worker" % QThread.currentThread().objectName())
-        self.counter = counter
+        self.fpga = fpga
         self.counttime = counttime
         self.updatetime = updatetime
 
@@ -283,20 +280,14 @@ class MinionTraceAquisition(QObject):
             i += 1
             xpart.append(time.time()-tstart)
             # COUNT
-            self.counter.write(b'C')
-            time.sleep(self.counttime)
-            answer = self.counter.read(8)
-            apd1 = answer[:4]
-            apd2 = answer[4:]
-            apd1_count = int.from_bytes(apd1, byteorder='little')
-            apd2_count = int.from_bytes(apd2, byteorder='little')
+            apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
             ypart1.append(apd1_count)
             ypart2.append(apd2_count)
 
             if i % self.updatetime == 0:
                 xpart = np.array(xpart)
-                ypart1 = np.array(ypart1)/self.counttime  # in cps
-                ypart2 = np.array(ypart2)/self.counttime  # in cps
+                ypart1 = np.array(ypart1)
+                ypart2 = np.array(ypart2)
                 self.updatetrace.emit(xpart, ypart1, ypart2)
                 xpart = []
                 ypart1 = []

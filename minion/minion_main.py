@@ -18,10 +18,13 @@ class MinionMainWindow(QMainWindow):
         import minion.minion_3dscan as volumescan
         import minion.minion_tracker as tracker
         import minion.minion_cwodmr as cwodmr
+        import minion.minion_counter as fpga_control
 
+        self.fpga = fpga_control.MinionCounter()
+        self.counter = self.fpga.counter
         # hardware initialization etc
         from minion.minion_hardware_check import CheckHardware
-        self.hardware_counter, self.counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib = CheckHardware.check(CheckHardware)
+        self.hardware_counter, self.hardware_laser, self.laser, self.hardware_stage, self.stage, self.stagelib = CheckHardware.check(CheckHardware)
         # -------------------------------------------------------------------------------------------------------------
         self.confocalwidget = confocal.MinionConfocalUi(self)
 

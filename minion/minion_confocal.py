@@ -103,9 +103,9 @@ class MinionConfocalUi(QWidget):
         if self.hardware_laser is True:
             self.laser.close()
             print(self.laser)
-        if self.hardware_counter is True:
-            self.counter.close()
-            print(self.counter)
+        # if self.hardware_counter is True:
+        #     self.counter.close()
+        #     print(self.counter)
         if self.hardware_stage is True:
             self.stagelib.MCL_ReleaseHandle(self.stage)
             print('stage handle released')
@@ -584,7 +584,7 @@ class MinionConfocalUi(QWidget):
             self.mapcanvas.draw()
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.counter, self.stagelib, self.stage, self.scanmode, self.xpos, self.ypos, self.zpos)
+            self.aquisition = MinionColfocalMapDataAquisition(self.resolution1, self.resolution2, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.parent.fpga, self.stagelib, self.stage, self.scanmode, self.xpos, self.ypos, self.zpos)
             self.confocalthread = QThread(self, objectName='workerThread')
             self.aquisition.moveToThread(self.confocalthread)
             self.aquisition.finished.connect(self.confocalthread.quit)
@@ -630,13 +630,11 @@ class MinionConfocalUi(QWidget):
         self.settlingtime = self.settlingtimetext.value()/1000
         self.counttime = self.counttimetext.value()/1000
         if self.hardware_counter is True:
-            self.fpgaclock = 80*10**6  # in Hz
-            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-            self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+            self.parent.fpga.setcountingtime(self.counttime)
+            self.check_counttime = self.parent.fpga.checkcounttime()
             print('\t fpga counttime:', self.check_counttime)
-        print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
+        print('counttime:', self.counttime)
+        print('settlingtime:', self.settlingtime)
 
     def checklaserpower(self):
         if self.hardware_laser is True:
@@ -675,7 +673,7 @@ class MinionColfocalMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution1, resolution2, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, counter, stagelib, stage, scanmode, xpos, ypos, zpos):
+    def __init__(self, resolution1, resolution2, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, fpga, stagelib, stage, scanmode, xpos, ypos, zpos):
         super(MinionColfocalMapDataAquisition, self).__init__()
         self.resolution1 = resolution1
         self.resolution2 = resolution2
@@ -691,7 +689,7 @@ class MinionColfocalMapDataAquisition(QObject):
         self.ypos = ypos
         self.zpos = zpos
         self.scanmode = scanmode
-        self.counter = counter
+        self.fpga = fpga
         self.dimension = len(scanmode)
         self.stagelib = stagelib
         self.stage = stage
@@ -776,14 +774,8 @@ class MinionColfocalMapDataAquisition(QObject):
                 self.poserrory += (self.list2[0, i] - pos2)
 
                 # COUNT
-                self.counter.write(b'C')
-                time.sleep(self.counttime*1.05)
-                answer = self.counter.read(8)
-                apd1 = answer[:4]
-                apd2 = answer[4:]
-                apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
-                apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                mapdataupdate[self.indexlist[0, i, 0], self.indexlist[0, i, 1]] = apd1_count + apd2_count
+                apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
+                mapdataupdate[self.indexlist[0, i, 0], self.indexlist[0, i, 1]] = apd_sum
 
                 if (i+1) % self.resolution1 == 0:
                     self.progress = int(100*i/(self.resolution1*self.resolution2))

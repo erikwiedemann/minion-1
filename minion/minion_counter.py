@@ -8,6 +8,7 @@ class MinionCounter(QObject):
         super(MinionCounter, self).__init__(parent)
         self.counter = serial.Serial('/dev/ttyUSB3', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
         self.fpgaclock = 80*10**6  # in Hz
+        self.counttime = 0.005
         print('\t counter connected')
 
     def __del__(self):
@@ -50,7 +51,7 @@ class MinionCounter(QObject):
         check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
         return check_counttime
 
-    def count(self, counttime):
+    def count(self):
         self.counter.write(b'C')
         time.sleep(self.counttime*1.05)
         answer = self.counter.read(8)
