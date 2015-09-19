@@ -29,7 +29,7 @@ class Minion3dscanUI(QWidget):
         self.hardware_laser = self.parent.hardware_laser
         self.hardware_stage = self.parent.hardware_stage
         if self.hardware_counter is True:
-            self.counter = self.parent.counter
+            self.fpga = self.parent.fpga
         if self.hardware_laser is True:
             self.laser = self.parent.laser
         if self.hardware_stage is True:
@@ -260,13 +260,12 @@ class Minion3dscanUI(QWidget):
         self.settlingtime = self.settlingtimetext.value()/1000
         self.counttime = self.counttimetext.value()/1000
         if self.hardware_counter is True:
-            self.fpgaclock = 80*10**6  # in Hz
-            self.counttime_bytes = (int(self.counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
-            self.counter.write(b'T'+self.counttime_bytes)  # set counttime at fpga
-            self.counter.write(b't')  # check counttime
-            self.check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
+            self.parent.fpga.setcountingtime(self.counttime)
+            self.check_counttime = self.parent.fpga.checkcounttime()
             print('\t fpga counttime:', self.check_counttime)
-        print('settlingtime:', self.settlingtime, 'counttime:', self.counttime)
+            print('\t counttime:', self.counttime)
+            print('\t settlingtime:', self.settlingtime)
+
 
 
     def resolutiontextchanged(self):
@@ -283,7 +282,7 @@ class Minion3dscanUI(QWidget):
         self.slider.setTickInterval(int((self.resolution3)/10))
 
         if self.hardware_stage is True and self.hardware_counter is True:
-            self.volumeaquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.xpos, self.ypos, self.zpos, self.counter, self.stagelib, self.stage)
+            self.volumeaquisition = MinionVolumeMapDataAquisition(self.resolution1, self.resolution2, self.resolution3, self.settlingtime, self.counttime, self.xmin, self.xmax, self. ymin, self.ymax, self.zmin, self.zmax, self.xpos, self.ypos, self.zpos, self.fpga, self.stagelib, self.stage)
             self.volumethread = QThread(self, objectName='workerThread')
             self.volumeaquisition.moveToThread(self.volumethread)
             self.volumeaquisition.finished.connect(self.volumethread.quit)
@@ -327,7 +326,7 @@ class MinionVolumeMapDataAquisition(QObject):
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, int)
 
-    def __init__(self, resolution1, resolution2, resolution3, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, xpos, ypos, zpos, counter, stagelib, stage):
+    def __init__(self, resolution1, resolution2, resolution3, settlingtime, counttime, xmin, xmax, ymin, ymax, zmin, zmax, xpos, ypos, zpos, fpga, stagelib, stage):
         super(MinionVolumeMapDataAquisition, self).__init__()
         self.resolution1 = resolution1
         self.resolution2 = resolution2
@@ -343,7 +342,7 @@ class MinionVolumeMapDataAquisition(QObject):
         self.xpos = xpos
         self.ypos = ypos
         self.zpos = zpos
-        self.counter = counter
+        self.fpga = fpga
         self.stagelib = stagelib
         self.stage = stage
         self.poserrorx = 0.
@@ -424,14 +423,8 @@ class MinionVolumeMapDataAquisition(QObject):
                 self.poserrorz += (self.list3[0, i] - pos3)
 
                 # COUNT
-                self.counter.write(b'C')
-                time.sleep(self.counttime*1.05)
-                answer = self.counter.read(8)
-                apd1 = answer[:4]
-                apd2 = answer[4:]
-                apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
-                apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
-                volumemapdataupdate[self.indexlist[0, 0, i], self.indexlist[0, 1, i], self.indexlist[0, 2, i]] = apd1_count + apd2_count  # TODO - check if axis are correct
+                apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
+                volumemapdataupdate[self.indexlist[0, 0, i], self.indexlist[0, 1, i], self.indexlist[0, 2, i]] = apd_sum  # TODO - check if axis are correct
 
                 if (i+1) % (self.resolution1*self.resolution2) == 0:
                     self.progress = int(100*i/(self.resolution1*self.resolution2*self.resolution3))
