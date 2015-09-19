@@ -6,7 +6,7 @@ from PyQt5.QtCore import *
 class MinionCounter(QObject):
     def __init__(self, parent=None):
         super(MinionCounter, self).__init__(parent)
-        self.counter = serial.Serial('/dev/ttyUSB2', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+        self.counter = serial.Serial('/dev/ttyUSB3', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
         self.fpgaclock = 80*10**6  # in Hz
         print('\t counter connected')
 
@@ -41,6 +41,7 @@ class MinionCounter(QObject):
         self.counter.write(b'r')
 
     def setcountingtime(self, counttime=0.005):
+        self.counttime = counttime
         counttime_bytes = (int(counttime*self.fpgaclock)).to_bytes(4, byteorder='little')
         self.counter.write(b'T'+counttime_bytes)  # set counttime at fpga
 
@@ -49,5 +50,13 @@ class MinionCounter(QObject):
         check_counttime = int.from_bytes(self.counter.read(4), byteorder='little')/self.fpgaclock
         return check_counttime
 
-
+    def count(self, counttime):
+        self.counter.write(b'C')
+        time.sleep(self.counttime*1.05)
+        answer = self.counter.read(8)
+        apd1 = answer[:4]
+        apd2 = answer[4:]
+        apd1_count = int.from_bytes(apd1, byteorder='little')/self.counttime  # in cps
+        apd2_count = int.from_bytes(apd2, byteorder='little')/self.counttime  # in cps
+        return [apd1_count, apd2_count, apd1_count + apd2_count]
 

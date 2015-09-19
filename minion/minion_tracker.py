@@ -316,7 +316,6 @@ class MinionTrackerUI(QWidget):
 
 
 
-
     def loadlastscan(self):
         filelist = os.listdir(os.getcwd()+'/scanhistory/')
         fname = max(filelist, key=lambda x: os.stat('scanhistory/'+x).st_mtime)
@@ -479,16 +478,30 @@ class MinionContextTracker(QObject):
             self.goon.emit()
 
 
-class MinionCenterTracker(QObject):
+class MinionCenterTracker(QObject):  # currently only greedy climbing hill
     started = pyqtSignal()
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
     wait = pyqtSignal()
     goon = pyqtSignal()
 
-    def __init__(self, referencedata, data,  parent=None):
+    def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
         super(MinionCenterTracker, self).__init__(parent)
+        self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
+        self.stepsize = 5 # um - change to 0.05
+        self.stepsize_corse = 0.1  # um
+        self.stepsize_fine = 0.01  # um
+        self.stepsize_restart = 3  # um
+        self.restart_max = 2
+        self.counttime = 0.005  # s
+        self.settletime = 0.005  # s
 
+    def longrun(self):
+        # backup values
+        init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
+        init_node = data[init_coord[0], init_coord[1]]  # for reference
+
+        self.counter.setcountingtime(self.counter, counttime=0.005)
 
 
 class MinionFindCenter(QObject):
@@ -501,10 +514,10 @@ class MinionFindCenter(QObject):
     def __init__(self, counter, stagelib, stage, xpos, ypos, zpos,  parent=None):
         super(MinionFindCenter, self).__init__(parent)
         self.counter, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = counter, stagelib, stage, xpos, ypos, zpos
-        self.resolution1 = 7
-        self.resolution2 = 7
+        self.resolution1 = 9
+        self.resolution2 = 9
         self.resolution3 = 11
-        self.counttime = 0.003
+        self.counttime = 0.005
         self.settlingtime = 0.01
 
         # set count and settle times
