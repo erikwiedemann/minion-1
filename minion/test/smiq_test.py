@@ -26,7 +26,7 @@ print(':FREQ '+str(np.mean(freqlist)))
 print(':POW '+str(np.mean(powerlist))+'dBm')
 
 #connect fpga and smiq
-counter = serial.Serial('/dev/ttyUSB1', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+counter = serial.Serial('/dev/ttyUSB3', baudrate=4000000, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
 fpgaclock = 80*10**6  # in Hz
 counttime_bytes = (int(0.005*fpgaclock)).to_bytes(4, byteorder='little')
 counter.write(b'T'+counttime_bytes)  # set counttime at fpga
@@ -87,8 +87,8 @@ except:
 
 counter.write(b'd')  #ReadTriggeredCountingData
 time.sleep(0.1)
-counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
-
+data = counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
+print(data)
 # disable triggered counting
 counter.write(b'r')  #DisableTriggeredCounting
 counter.close()

@@ -115,6 +115,9 @@ class MinionTrackerUI(QWidget):
         self.findcenterabortbutton = QPushButton('abort')
         self.findcenterabortbutton.clicked.connect(self.findcenterabortclicked)
 
+        self.findmaxbutton = QPushButton('find max at crosshair pos')
+        self.findmaxbutton.clicked.connect(self.findmaxclicked)
+
 
         # -------------------------------------------------------------------------------------------------------------
         # CONTEXT TRACKER
@@ -218,11 +221,12 @@ class MinionTrackerUI(QWidget):
         centertrackerplotbox.addWidget(self.centertoolbarxz)
         centertrackerplotbox.addWidget(self.centercanvasyz)
         centertrackerplotbox.addWidget(self.centertoolbaryz)
-        centertrackertablayout.addLayout(centertrackerplotbox, 0, 0)
+        centertrackertablayout.addLayout(centertrackerplotbox, 0, 0, 5, 1)
 
 
         centertrackertablayout.addWidget(self.findcenterbutton, 0, 1)
-        centertrackertablayout.addWidget(self.findcenterabortbutton, 1, 1)
+        centertrackertablayout.addWidget(self.findmaxbutton, 1, 1)
+        centertrackertablayout.addWidget(self.findcenterabortbutton, 2, 1)
 
         # -------------------------------------------------------------------------------------------------------------
         # maptracker
@@ -272,6 +276,19 @@ class MinionTrackerUI(QWidget):
             self.findcenter.update.connect(self.updatefindcentermaps)
             self.findcenterthread.start()
 
+    def findmaxclicked(self):
+        print("[%s] start search for max" % QThread.currentThread().objectName())
+        if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
+            self.findmax = MinionCenterTracker(self.parent.fpga, self.parent.stagelib, self.parent.stage, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos)
+            self.findmaxthread = QThread(self, objectName='workerThread')
+            self.findmax.moveToThread(self.findmaxthread)
+            self.findmax.finished.connect(self.findmaxthread.quit)
+
+            self.findmaxthread.started.connect(self.findmax.longrun)
+            self.findmaxthread.finished.connect(self.findmaxthread.deleteLater)
+            # self.findmax.update.connect(self.updatefindcentermaps)
+            self.findmaxthread.start()
+
     def findcenterabortclicked(self):
         try:
             print('abort center find')
@@ -279,6 +296,13 @@ class MinionTrackerUI(QWidget):
             self.findcenterthread.quit()
         except:
             print('no center finder running')
+        try:
+            print('abort max find')
+            self.findmax.stop()
+            self.findmaxthread.quit()
+        except:
+            print('no max finder running')
+
 
     @pyqtSlot(np.ndarray, np.ndarray, np.ndarray, float, float, float)
     def updatefindcentermaps(self, xymapdataupdate, xzmapdataupdate, yzmapdataupdate, pos1, pos2, pos3):
@@ -485,26 +509,104 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
     wait = pyqtSignal()
     goon = pyqtSignal()
 
-    def __init__(self, fpga, stagelib, stage, xpos, ypos, zpos,  parent=None):
+    def __init__(self, fpga, stagelib, stage, xpos, ypos, zpos,  parent=None):  # TODO - get all variables to ui for tracker
         super(MinionCenterTracker, self).__init__(parent)
         self.fpga, self.stagelib, self.stage, self.xpos, self.ypos, self.zpos = fpga, stagelib, stage, xpos, ypos, zpos
-        self.stepsize = 5 # um - change to 0.05
+        self.stepsize = 0.1  # um - change to 0.05
+        self.stepsize_decrease = 0.5  # factor to which the stepsize decreases - i.e. 0.5 = 50 %
         self.stepsize_corse = 0.1  # um
-        self.stepsize_fine = 0.01  # um
-        self.stepsize_restart = 3  # um
+        self.stepsize_fine = 0.001  # um
+        self.stepsize_restart = 0.05  # um
         self.restart_max = 2
         self.counttime = 0.005  # s
         self.settletime = 0.005  # s
+        self.tolerance = 0.01  # how much bigger has the new value to be
+        self.distlimit = 2  # abort tracker if distance between initial and new coord is bigger this
+        self.average_over_measurement = 5
 
     def longrun(self):
+        self.fpga.setcountingtime(counttime=self.counttime)
         # backup values
-        init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
-        init_node = data[init_coord[0], init_coord[1]]  # for reference
+        self.init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
+        for countrun in range(self.average_over_measurement):  # for reference
+            apd1, apd2, apd_sum = self.fpga.count()
+            self.init_node += apd_sum
+        self.init_node /= self.average_over_measurement
 
-        self.fpga.setcountingtime(counttime=0.005)
+        print('init coord and value:', self.init_coord, self.init_node)
+
+        self.kernel = np.zeros((3, 3, 3))  # preallocate
+        # measure adjacent coords
+        self.current_node = self.init_node
+        self.current_coord = self.init_coord
+        self.new_node = self.current_node
+        self.new_coord = [0., 0., 0.]
+        self.success = False
+        self.error = False
+        self.number_restarts = 0
+        self.run_number = 0
+        t0=time.time()
+        while self.success is not True and self.error is not True:
+            self.run_number += 1
+            self.kernel *= 0
+            for (i, j, k), value in np.ndenumerate(self.kernel):
+                self.new_coord = [self.current_coord[0]+(i-1)*self.stepsize, self.current_coord[1]+(j-1)*self.stepsize, self.current_coord[2]+(k-1)*self.stepsize]
+                # print('new coord in kernel:', self.new_coord)
+                # go to new pos
+                status1 = self.stagelib.MCL_SingleWriteN(c_double(self.new_coord[0]), 2, self.stage)  #x
+                status2 = self.stagelib.MCL_SingleWriteN(c_double(self.new_coord[1]), 1, self.stage)  #y
+                status3 = self.stagelib.MCL_SingleWriteN(c_double(self.new_coord[2]), 3, self.stage)  #z
+                time.sleep(self.settletime)
+                for countrun in range(self.average_over_measurement):
+                    apd1, apd2, apd_sum = self.fpga.count()
+                    self.kernel[i, j, k] += apd_sum
+                self.kernel[i, j, k] /= self.average_over_measurement
+            maxpos = np.asarray(np.unravel_index(self.kernel.argmax(), self.kernel.shape))
+            self.new_coord = [self.current_coord[0]+(maxpos[0]-1)*self.stepsize, self.current_coord[1]+(maxpos[1]-1)*self.stepsize, self.current_coord[2]+(maxpos[2]-1)*self.stepsize]
+            self.new_node = self.kernel[maxpos[0], maxpos[1], maxpos[2]]
+            # print('____________')
+            # print(maxpos)
+            # print(self.kernel)
+            # print('stepsize:', self.stepsize_corse)
+            # print('new coord:', self.new_coord)
+            # print('new value:', self.new_node)
+            # print('previous value:', self.current_node)
+            # print('restarts:', self.number_restarts)
+
+            if abs(np.linalg.norm(np.array(self.init_coord)-np.array(self.new_coord))) > self.distlimit:
+                self.error = True
+                print('max dist from init. position reached - aborting tracking')
+            else:
+                if self.new_node > self.current_node+self.current_node*self.tolerance:
+                    self.current_node = self.new_node
+                    self.current_coord = self.new_coord
+                else:
+                    self.stepsize_corse *= self.stepsize_decrease
+                    if self.stepsize_corse < self.stepsize_fine:
+                        self.stepsize_corse = self.stepsize_restart
+                        if self.number_restarts >= self.restart_max:
+                            self.success = True
+                        self.number_restarts += 1
+
+        if self.success is True:
+            print('optimized coord and counts:', self.current_coord, self.current_node)
+            print('success after:', time.time()-t0)
+            # go to optimized coord
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.current_coord[0]), 2, self.stage)  #x
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.current_coord[1]), 1, self.stage)  #y
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.current_coord[2]), 3, self.stage)  #z
+
+        if self.error is True:
+            print('going to initial coord:', self.init_coord)
+            print('error after:', time.time()-t0)
+            status1 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[0]), 2, self.stage)  #x
+            status2 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[1]), 1, self.stage)  #y
+            status3 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[2]), 3, self.stage)  #z
 
 
-class MinionFindCenter(QObject):
+
+
+class MinionFindCenter(QObject): # fit ellipses to maps and center them in 3d
     started = pyqtSignal()
     finished = pyqtSignal()
     update = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, float, float, float)  # floats are corrections in x y z
