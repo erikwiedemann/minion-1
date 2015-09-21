@@ -15,22 +15,45 @@ class MinionCounter(QObject):
         self.counter.close()
         print(self.counter)
 
-    def setcountingbins(self, numbins):
+    def setnumbercountingbins(self, numbins):
         self.numbins = numbins
         counterbins = numbins.to_bytes(2, byteorder='little')
         self.counter.write(b'B'+counterbins)
 
-    def readcountingbins(self, ):
+    def getcurrentbinpos(self):
+        self.counter.write(b'a')
+        binposbyte = self.counter.read(2)
+        return int.from_bytes(binposbyte, byteorder='little')
+
+    def getnumbercountingbins(self):
+        self.counter.write(b'b')
+        self.numbins = int.from_bytes(self.counter.read(2), byteorder='little')
+        return self.numbins
+
+    def readcountingbins(self):
         self.counter.write(b'd')  #ReadTriggeredCountingData
-        time.sleep(0.1)
-        self.counter.read(self.numbins*3*2)  #2=two apds, res=numbins, 3=? - why not 4?
+        time.sleep(0.5)
+        countingbindata = self.counter.read(self.numbins*3*2) #2=two apds, res=numbins
+        countbinlist = [countingbindata[i:i+6] for i in range(0, len(countingbindata), 6)]
+        apd1 = [bin[:3] for bin in countbinlist]
+        apd2 = [bin[-3:] for bin in countbinlist]
+        apd1_count = np.array([int.from_bytes(count1, byteorder='little') for count1 in apd1])
+        apd2_count = np.array([int.from_bytes(count2, byteorder='little') for count2 in apd2])
+        return apd1_count, apd2_count, apd1_count+apd2_count
 
     def settriggermasks(self, mask=8, invertedmask=8):
         self.counter.write(b'M'+mask.to_bytes(1, byteorder='little'))
         self.counter.write(b'Q'+invertedmask.to_bytes(1, byteorder='little'))
 
     def setcountingbinrepetitions(self, rep=1):
-        self.counter.write(b'K'+rep.to_bytes(4, byteorder='little'))
+        self.counter.write(b'K'+rep.to_bytes(2, byteorder='little'))
+
+    def setsplittriggeredbins(self, split=0):
+        self.counter.write(b'F'+split.to_bytes(1, byteorder='little'))
+        print('split byte:', b'F'+split.to_bytes(1, byteorder='little'))
+
+    def getsplittriggeredbins(self):
+        pass  # not yet there
 
     def resettriggerbins(self):
         self.counter.write(b'0')

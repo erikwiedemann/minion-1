@@ -515,10 +515,10 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
         self.stepsize = 0.1  # um - change to 0.05
         self.stepsize_decrease = 0.5  # factor to which the stepsize decreases - i.e. 0.5 = 50 %
         self.stepsize_corse = 0.1  # um
-        self.stepsize_fine = 0.001  # um
+        self.stepsize_fine = 0.005  # um
         self.stepsize_restart = 0.05  # um
         self.restart_max = 2
-        self.counttime = 0.005  # s
+        self.counttime = 0.01  # s
         self.settletime = 0.005  # s
         self.tolerance = 0.01  # how much bigger has the new value to be
         self.distlimit = 2  # abort tracker if distance between initial and new coord is bigger this
@@ -528,6 +528,7 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
         self.fpga.setcountingtime(counttime=self.counttime)
         # backup values
         self.init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
+        self.init_node = 0
         for countrun in range(self.average_over_measurement):  # for reference
             apd1, apd2, apd_sum = self.fpga.count()
             self.init_node += apd_sum

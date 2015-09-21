@@ -4,6 +4,9 @@ import time
 import serial
 
 
+# TODO - laser and microwave on at AWG
+
+
 
 res = 201   # max 4000
 freqmin = 2.86*10**9
@@ -51,7 +54,7 @@ counter.write(b'K'+(1).to_bytes(4, byteorder='little'))  #SetTriggeredCountingBi
 counter.write(b'0')  #ResetTriggeredCountingData
 counter.write(b'R')  #EnableTriggeredCounting
 
-
+test = 0
 try:
     gpib.write(smiq, '*RST') # nicht jedes mal machen - nur bei programmstart
     time.sleep(0.1)
@@ -81,10 +84,16 @@ try:
 
 
 except:
+    test = 1
     print('oops - something went wrong')
     gpib.write(smiq, '*RST')
     gpib.close(smiq)
 
+if test == 1:
+    gpib.write(smiq, '*RST')
+    gpib.close(smiq)
+
+time.sleep(5)
 counter.write(b'd')  #ReadTriggeredCountingData
 time.sleep(0.1)
 data = counter.read(res*3*2)  #2=two apds, res=numbins, 3=? - why not 4?

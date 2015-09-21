@@ -46,12 +46,20 @@ class MinionSmiq06b(QObject):
             gpib.write(self.smiq, ':POW?')
         return float(gpib.read(self.smiq, 256))
 
+    def setpower(self, power=None):
+        if power != None:
+            gpib.write(self.smiq, ':POW '+str(power))
+
     def freq(self, freq=None):
         if freq != None:
             gpib.write(self.smiq, ':FREQ '+str(freq))
             gpib.write(self.smiq, '*WAI')
             gpib.write(self.smiq, ':FREQ?')
         return float(gpib.read(self.smiq, 256))
+
+    def setfreq(self, freq=None):
+        if freq != None:
+            gpib.write(self.smiq, ':FREQ '+str(freq))
 
     def cw(self, freq=None, power=None):
         gpib.write(self.smiq, ':FREQ:MODE CW')
