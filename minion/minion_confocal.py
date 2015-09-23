@@ -103,9 +103,6 @@ class MinionConfocalUi(QWidget):
         if self.hardware_laser is True:
             self.laser.close()
             print(self.laser)
-        # if self.hardware_counter is True:
-        #     self.counter.close()
-        #     print(self.counter)
         if self.hardware_stage is True:
             self.stagelib.MCL_ReleaseHandle(self.stage)
             print('stage handle released')

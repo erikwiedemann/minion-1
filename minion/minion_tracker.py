@@ -338,8 +338,6 @@ class MinionTrackerUI(QWidget):
 
         # print(time.time()-start)
 
-
-
     def loadlastscan(self):
         filelist = os.listdir(os.getcwd()+'/scanhistory/')
         fname = max(filelist, key=lambda x: os.stat('scanhistory/'+x).st_mtime)
@@ -600,9 +598,12 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
         if self.error is True:
             print('going to initial coord:', self.init_coord)
             print('error after:', time.time()-t0)
+            self.current_coord = self.init_coord
             status1 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[0]), 2, self.stage)  #x
             status2 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[1]), 1, self.stage)  #y
             status3 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[2]), 3, self.stage)  #z
+
+        return self.current_coord
 
 
 

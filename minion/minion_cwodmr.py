@@ -115,9 +115,6 @@ class MinionCwodmrUI(QWidget):
 
         self.setLayout(cwodmrlayout)
 
-    def updateodmrspc(self):
-        self.cwodmraxes.plot(self.cwodmrdata)
-
     def freqchanged(self):
         freq = self.freqtext.value()*10**9
         self.freq = smiq.freq(smiq, freq)
@@ -160,16 +157,44 @@ class MinionCwodmrUI(QWidget):
             list = self.listdata[i, :]
             self.freqlist.extend(np.array(np.linspace(list[0]*10**9, list[1]*10**9, int(list[2]))))
             self.powerlist.extend(np.ones(int(list[2]))*list[3])
-        smiq.setlist(smiq, self.freqlist, self.powerlist)
+        self.power = self.powerlist[0]
+        # smiq.setlist(smiq, self.freqlist, self.powerlist)
+
+    @pyqtSlot(np.ndarray)
+    def updateODMRdata(self, odmrupdate):
+        if np.size(self.cwodmrdata, 0) == 1:
+            self.cwodmrdata = odmrupdate
+            self.cwodmraxes.plot(self.freqlist, self.cwodmrdata)
+        else:
+            self.cwodmrdata = np.vstack((self.cwodmrdata, odmrupdate))
+            self.cwodmraxes.set_data(self.cwodmrdata[])
+
+        self.cwodmraxes.relim()
+        self.cwodmraxes.autoscale_view()
+        self.cwodmrcanvas.draw()
+        self.cwodmrcanvas.flush_events()
+
+        self.cwodmraxes.set
+
 
 
     def startcwodmr(self):
         if self.startcwodmrbutton.isChecked() is True:
+            if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
+                self.cwodmrdata = np.zeros(len(self.freqlist))
+                self.cwODMRaquisition = MinionODMRAquisition(self.parent.fpga, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos, self.power, self.freqlist)
+                self.cwODMRaquisitionthread = QThread(self, objectName='workerThread')
+                self.cwODMRaquisition.moveToThread(self.cwODMRaquisitionthread)
+                self.cwODMRaquisition.finished.connect(self.cwODMRaquisitionthread.quit)
+                self.cwODMRaquisition.track.connect(self.parent.tracker.findmaxclicked)
+
+                self.cwODMRaquisitionthread.started.connect(self.cwODMRaquisition.longrun)
+                self.cwODMRaquisitionthread.finished.connect(self.cwODMRaquisitionthread.deleteLater)
+                # self.findmax.update.connect(self.updatefindcentermaps)
+
+                self.cwODMRaquisitionthread.start()
+
             self.startcwodmrbutton.setStyleSheet("QPushButton {background-color: green;}")
-            self.parent.fpga.setcountingtime(0.01)  # set counttime at fpga
-            time.sleep(0.001)
-            check_counttime = self.parent.fpga.checkcounttime()  # check counttime
-            print('counttime:', check_counttime)
 
 
 
@@ -209,26 +234,74 @@ class MinionCwodmrUI(QWidget):
 
             # TODO - remove below and fix above
             # dont use list mode and sweep over cw modes
-            smiq.on(smiq)
-
-            smiq.setpower(smiq, 10)
-            for i in range(101):
-                for f in range(len(self.freqlist)):
-                    smiq.setfreq(smiq, self.freqlist[f])
-                    time.sleep(0.001)
-                    apd1, apd2, apd_sum = self.parent.fpga.count()
-                    self.cwodmrdata[f-1] += apd_sum
-                if i%20 == 0:
-                    self.updateodmrspc()
-            print('done')
-
-
-
-
-
 
 
             self.startcwodmrbutton.toggle()
 
         else:
             self.startcwodmrbutton.setStyleSheet("QPushButton {background-color: red;}")
+
+
+
+
+class MinionODMRAquisition(QObject):
+    started = pyqtSignal()
+    finished = pyqtSignal()
+    update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
+    track = pyqtSignal()
+    goon = pyqtSignal()
+
+    def __init__(self, fpga, xpos, ypos, zpos, power, freqlist,  parent=None):  # remove data as not needed
+        super(MinionODMRAquisition, self).__init__(parent)
+        self.fpga = fpga
+        self.xpos = xpos
+        self.ypos = ypos
+        self.zpos = zpos
+        self.power = power
+        self.freqlist = freqlist
+
+        self._isRunning = True
+
+    def stop(self):
+        self._isRunning = False
+        self.trackertimer.stop()
+        print('total time tracked:', time.time()-self.tstart)
+        print('thread done')
+        self.finished.emit()
+
+    def starttrack(self):
+        self.pause = True
+        time.sleep(0.05)
+        self.track.emit()
+
+    def longrun(self):
+        self.contexttrackertimer = QTimer()
+        self.contexttrackertimer.setInterval(120*10**3)  # ms
+        self.contexttrackertimer.timeout.connect(self.starttrack)
+        self.contexttrackertimer.start()
+
+        self.fpga.setcountingtime(0.01)  # set counttime at fpga
+        time.sleep(0.001)
+        check_counttime = self.fpga.checkcounttime()  # check counttime
+        print('counttime:', check_counttime)
+        print("[%s] start cwODMR scan" % QThread.currentThread().objectName())
+
+        self.cwodmrdata = np.zeros(len(self.freqlist))
+
+        smiq.on(smiq)
+        smiq.setpower(smiq, self.power)
+
+        for i in range(101):
+            for f in range(len(self.freqlist)):
+                while self.pause is True:
+                    time.sleep(1)
+                smiq.setfreq(smiq, self.freqlist[f])
+                time.sleep(0.001)
+                apd1, apd2, apd_sum = self.fpga.count()
+                self.cwodmrdata[f-1] += apd_sum
+                if f%len(self.freqlist) == 0:
+                    self.update.emit(self.cwodmrdata)
+
+
+
+        print('done')
