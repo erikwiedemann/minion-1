@@ -24,6 +24,7 @@ import serial
 
 
 class MinionTrackerUI(QWidget):
+    trackdone = pyqtSignal()
     def __init__(self, parent):
         super(MinionTrackerUI, self).__init__(parent)
         self.parent = parent
@@ -287,13 +288,16 @@ class MinionTrackerUI(QWidget):
             self.findmaxthread.started.connect(self.findmax.longrun)
             self.findmaxthread.finished.connect(self.findmaxthread.deleteLater)
             self.findmax.update.connect(self.updatepositions)
+            self.trackdone.connect(self.parent.cwodmrwidget.continueodmraquisition)
             self.findmaxthread.start()
 
-    @pyqtSlot(np.ndarray)
+    @pyqtSlot(list)
     def updatepositions(self, coord):
         self.parent.confocalwidget.xpos = coord[0]
         self.parent.confocalwidget.ypos = coord[1]
         self.parent.confocalwidget.zpos = coord[2]
+        if self.parent.cwodmrwidget.measurementrunning is True:
+            self.trackdone.emit()
         print('new coord:', coord)
 
     def findcenterabortclicked(self):
@@ -510,7 +514,7 @@ class MinionContextTracker(QObject):
 class MinionCenterTracker(QObject):  # currently only greedy climbing hill
     started = pyqtSignal()
     finished = pyqtSignal()
-    update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
+    update = pyqtSignal(list)
     wait = pyqtSignal()
     goon = pyqtSignal()
 
@@ -530,6 +534,7 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
         self.average_over_measurement = 5
 
     def longrun(self):
+        print("[%s] searching" % QThread.currentThread().objectName())
         self.fpga.setcountingtime(counttime=self.counttime)
         # backup values
         self.init_coord = [self.xpos, self.ypos, self.zpos]  # current stage pos
@@ -611,6 +616,7 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
             status3 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[2]), 3, self.stage)  #z
 
         self.update.emit(self.current_coord)
+        self.finished.emit()
 
 
 

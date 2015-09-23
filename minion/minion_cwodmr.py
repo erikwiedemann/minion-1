@@ -22,12 +22,14 @@ import gpib
 
 
 class MinionCwodmrUI(QWidget):
+    continueodmr = pyqtSignal()
     def __init__(self, parent):
         super(MinionCwodmrUI, self).__init__(parent)
         self.parent = parent
         self.counter = self.parent.counter
 
         smiq.connect(smiq)
+        self.measurementrunning = False
 
         self.frequency = 2.87*10**9  #Hz
         self.power = -20.
@@ -90,10 +92,14 @@ class MinionCwodmrUI(QWidget):
         self.sendlisttosmiqbutton = QPushButton('send list')
         self.sendlisttosmiqbutton.clicked.connect(self.sendlisttosmiq)
 
-        self.startcwodmrbutton = QPushButton('start list')
+        self.startcwodmrbutton = QPushButton('start sweep')
         self.startcwodmrbutton.setCheckable(True)
         self.startcwodmrbutton.setStyleSheet("QPushButton {background-color: red;}")
         self.startcwodmrbutton.toggled.connect(self.startcwodmr)
+
+        self.abortodmrsweepbutton = QPushButton('abort sweep')
+        self.abortodmrsweepbutton.clicked.connect(self.abortodmrsweep)
+
 
         # LAYOUT
 
@@ -112,8 +118,17 @@ class MinionCwodmrUI(QWidget):
         cwodmrlayout.addWidget(self.listtableremoverowbutton)
         cwodmrlayout.addWidget(self.sendlisttosmiqbutton)
         cwodmrlayout.addWidget(self.startcwodmrbutton)
+        cwodmrlayout.addWidget(self.abortodmrsweepbutton)
 
         self.setLayout(cwodmrlayout)
+
+    def abortodmrsweep(self):
+        try:
+            print('aborting sweep')
+            self.cwODMRaquisition.stop()
+            self.cwODMRaquisitionthread.quit()
+        except:
+            print('no sweep running')
 
     def freqchanged(self):
         freq = self.freqtext.value()*10**9
@@ -158,6 +173,7 @@ class MinionCwodmrUI(QWidget):
             self.freqlist.extend(np.array(np.linspace(list[0]*10**9, list[1]*10**9, int(list[2]))))
             self.powerlist.extend(np.ones(int(list[2]))*list[3])
         self.power = self.powerlist[0]
+        print('list updated')
         # smiq.setlist(smiq, self.freqlist, self.powerlist)
 
     @pyqtSlot(np.ndarray)
@@ -168,24 +184,29 @@ class MinionCwodmrUI(QWidget):
             self.cwodmraxes.plot(self.freqlist, self.cwodmrdataplot)
         else:
             self.cwodmrdata = np.vstack((self.cwodmrdata, odmrupdate))
-            self.cwodmraxes.set_data(self.cwodmrdataplot)
+            self.cwodmraxes.plot(self.freqlist, self.cwodmrdataplot)
 
-        self.cwodmraxes.relim()
-        self.cwodmraxes.autoscale_view()
+        # self.cwodmraxes.relim()
+        # self.cwodmraxes.autoscale_view()
         self.cwodmrcanvas.draw()
+
+    @pyqtSlot()
+    def continueodmraquisition(self):
+        self.continueodmr.emit()
 
     def startcwodmr(self):
         if self.startcwodmrbutton.isChecked() is True:
             if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
+                self.measurementrunning = True
                 self.cwodmrdata = np.zeros(len(self.freqlist))
                 self.cwodmrdataplot = np.zeros(len(self.freqlist))
                 self.cwODMRaquisition = MinionODMRAquisition(self.parent.fpga, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos, self.power, self.freqlist)
                 self.cwODMRaquisitionthread = QThread(self, objectName='workerThread')
                 self.cwODMRaquisition.moveToThread(self.cwODMRaquisitionthread)
                 self.cwODMRaquisition.finished.connect(self.cwODMRaquisitionthread.quit)
-                self.cwODMRaquisition.track.connect(self.parent.tracker.findmaxclicked)
+                self.cwODMRaquisition.track.connect(self.parent.trackerwidget.findmaxclicked)
                 self.cwODMRaquisition.update.connect(self.updateODMRdata)
-
+                self.continueodmr.connect(self.cwODMRaquisition.trackfinished)
                 self.cwODMRaquisitionthread.started.connect(self.cwODMRaquisition.longrun)
                 self.cwODMRaquisitionthread.finished.connect(self.cwODMRaquisitionthread.deleteLater)
                 # self.findmax.update.connect(self.updatefindcentermaps)
@@ -257,6 +278,8 @@ class MinionODMRAquisition(QObject):
         self.power = power
         self.freqlist = freqlist
         self.run = True
+        self.pause = False
+        self.abort = False
         self._isRunning = True
 
     def stop(self):
@@ -264,14 +287,17 @@ class MinionODMRAquisition(QObject):
         self.abort = True
 
         self.trackertimer.stop()
-        print('total time tracked:', time.time()-self.tstart)
-        print('thread done')
         self.finished.emit()
 
     def starttrack(self):
         self.pause = True
+        print('pause for tracking')
         time.sleep(0.05)
         self.track.emit()
+
+    @pyqtSlot()
+    def trackfinished(self):
+        self.pause = False
 
     def longrun(self):
         self.contexttrackertimer = QTimer()
@@ -297,7 +323,7 @@ class MinionODMRAquisition(QObject):
                 smiq.setfreq(smiq, self.freqlist[f])
                 time.sleep(0.001)
                 apd1, apd2, apd_sum = self.fpga.count()
-                self.cwodmrdata[f-1] += apd_sum
+                self.cwodmrdata[f-1] = apd_sum*0.01
                 if f%len(self.freqlist) == 0:
                     self.update.emit(self.cwodmrdata)
             if self.abort is True:
