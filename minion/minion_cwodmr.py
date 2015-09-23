@@ -181,10 +181,10 @@ class MinionCwodmrUI(QWidget):
         self.cwodmrdataplot += odmrupdate
         if np.size(self.cwodmrdata, 0) == 1:
             self.cwodmrdata = odmrupdate
-            self.cwodmraxes.plot(self.freqlist, self.cwodmrdataplot)
+            self.cwodmraxes.plot(self.freqlist[:-1], self.cwodmrdataplot[:-1])
         else:
             self.cwodmrdata = np.vstack((self.cwodmrdata, odmrupdate))
-            self.cwodmraxes.plot(self.freqlist, self.cwodmrdataplot)
+            self.cwodmraxes.plot(self.freqlist[:-1], self.cwodmrdataplot[:-1])
 
         # self.cwodmraxes.relim()
         # self.cwodmraxes.autoscale_view()
@@ -301,9 +301,9 @@ class MinionODMRAquisition(QObject):
 
     def longrun(self):
         self.contexttrackertimer = QTimer()
-        self.contexttrackertimer.setInterval(120*10**3)  # ms
-        self.contexttrackertimer.timeout.connect(self.starttrack)
-        self.contexttrackertimer.start()
+        # self.contexttrackertimer.setInterval(120*10**3)  # ms
+        # self.contexttrackertimer.timeout.connect(self.starttrack)
+        # self.contexttrackertimer.start()
 
         self.fpga.setcountingtime(0.01)  # set counttime at fpga
         time.sleep(0.001)
@@ -327,7 +327,6 @@ class MinionODMRAquisition(QObject):
                 self.cwodmrdata[f-1] = apd_sum*0.01
                 if f%len(self.freqlist) == 0:
                     self.update.emit(self.cwodmrdata)
-                    print(self.cwodmrdata)
             if self.abort is True:
                 self.run = False
 
