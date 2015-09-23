@@ -286,8 +286,15 @@ class MinionTrackerUI(QWidget):
 
             self.findmaxthread.started.connect(self.findmax.longrun)
             self.findmaxthread.finished.connect(self.findmaxthread.deleteLater)
-            # self.findmax.update.connect(self.updatefindcentermaps)
+            self.findmax.update.connect(self.updatepositions)
             self.findmaxthread.start()
+
+    @pyqtSlot(np.ndarray)
+    def updatepositions(self, coord):
+        self.parent.confocalwidget.xpos = coord[0]
+        self.parent.confocalwidget.ypos = coord[1]
+        self.parent.confocalwidget.zpos = coord[2]
+        print('new coord:', coord)
 
     def findcenterabortclicked(self):
         try:
@@ -603,7 +610,7 @@ class MinionCenterTracker(QObject):  # currently only greedy climbing hill
             status2 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[1]), 1, self.stage)  #y
             status3 = self.stagelib.MCL_SingleWriteN(c_double(self.init_coord[2]), 3, self.stage)  #z
 
-        return self.current_coord
+        self.update.emit(self.current_coord)
 
 
 

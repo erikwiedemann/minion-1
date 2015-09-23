@@ -162,31 +162,29 @@ class MinionCwodmrUI(QWidget):
 
     @pyqtSlot(np.ndarray)
     def updateODMRdata(self, odmrupdate):
+        self.cwodmrdataplot += odmrupdate
         if np.size(self.cwodmrdata, 0) == 1:
             self.cwodmrdata = odmrupdate
-            self.cwodmraxes.plot(self.freqlist, self.cwodmrdata)
+            self.cwodmraxes.plot(self.freqlist, self.cwodmrdataplot)
         else:
             self.cwodmrdata = np.vstack((self.cwodmrdata, odmrupdate))
-            self.cwodmraxes.set_data(self.cwodmrdata[])
+            self.cwodmraxes.set_data(self.cwodmrdataplot)
 
         self.cwodmraxes.relim()
         self.cwodmraxes.autoscale_view()
         self.cwodmrcanvas.draw()
-        self.cwodmrcanvas.flush_events()
-
-        self.cwodmraxes.set
-
-
 
     def startcwodmr(self):
         if self.startcwodmrbutton.isChecked() is True:
             if self.parent.hardware_stage is True and self.parent.hardware_counter is True:
                 self.cwodmrdata = np.zeros(len(self.freqlist))
+                self.cwodmrdataplot = np.zeros(len(self.freqlist))
                 self.cwODMRaquisition = MinionODMRAquisition(self.parent.fpga, self.parent.confocalwidget.xpos, self.parent.confocalwidget.ypos, self.parent.confocalwidget.zpos, self.power, self.freqlist)
                 self.cwODMRaquisitionthread = QThread(self, objectName='workerThread')
                 self.cwODMRaquisition.moveToThread(self.cwODMRaquisitionthread)
                 self.cwODMRaquisition.finished.connect(self.cwODMRaquisitionthread.quit)
                 self.cwODMRaquisition.track.connect(self.parent.tracker.findmaxclicked)
+                self.cwODMRaquisition.update.connect(self.updateODMRdata)
 
                 self.cwODMRaquisitionthread.started.connect(self.cwODMRaquisition.longrun)
                 self.cwODMRaquisitionthread.finished.connect(self.cwODMRaquisitionthread.deleteLater)
@@ -236,9 +234,8 @@ class MinionCwodmrUI(QWidget):
             # dont use list mode and sweep over cw modes
 
 
-            self.startcwodmrbutton.toggle()
-
         else:
+            self.startcwodmrbutton.toggle()
             self.startcwodmrbutton.setStyleSheet("QPushButton {background-color: red;}")
 
 
@@ -247,7 +244,7 @@ class MinionCwodmrUI(QWidget):
 class MinionODMRAquisition(QObject):
     started = pyqtSignal()
     finished = pyqtSignal()
-    update = pyqtSignal(np.ndarray, np.ndarray, float, float, float, str)  # floats are corrections in x y z
+    update = pyqtSignal(np.ndarray)
     track = pyqtSignal()
     goon = pyqtSignal()
 
@@ -259,11 +256,13 @@ class MinionODMRAquisition(QObject):
         self.zpos = zpos
         self.power = power
         self.freqlist = freqlist
-
+        self.run = True
         self._isRunning = True
 
     def stop(self):
         self._isRunning = False
+        self.abort = True
+
         self.trackertimer.stop()
         print('total time tracked:', time.time()-self.tstart)
         print('thread done')
@@ -291,7 +290,7 @@ class MinionODMRAquisition(QObject):
         smiq.on(smiq)
         smiq.setpower(smiq, self.power)
 
-        for i in range(101):
+        while self.run is True:
             for f in range(len(self.freqlist)):
                 while self.pause is True:
                     time.sleep(1)
@@ -301,7 +300,9 @@ class MinionODMRAquisition(QObject):
                 self.cwodmrdata[f-1] += apd_sum
                 if f%len(self.freqlist) == 0:
                     self.update.emit(self.cwodmrdata)
+            if self.abort is True:
+                self.run = False
 
-
+        smiq.off(smiq)
 
         print('done')
