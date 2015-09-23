@@ -319,13 +319,15 @@ class MinionODMRAquisition(QObject):
         while self.run is True:
             for f in range(len(self.freqlist)):
                 while self.pause is True:
+                    print('pause')
                     time.sleep(1)
                 smiq.setfreq(smiq, self.freqlist[f])
-                time.sleep(0.001)
+                time.sleep(0.003)
                 apd1, apd2, apd_sum = self.fpga.count()
                 self.cwodmrdata[f-1] = apd_sum*0.01
                 if f%len(self.freqlist) == 0:
                     self.update.emit(self.cwodmrdata)
+                    print(self.cwodmrdata)
             if self.abort is True:
                 self.run = False
 
