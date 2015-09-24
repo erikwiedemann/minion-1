@@ -33,16 +33,16 @@ def bin_ndarray(ndarray, new_shape, operation='mean'):
 
 # change to plot on 3d ax to increase speed further
 
-data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/x34_60-35_60-y26_60-27_60-z20-40-tset5ms-tcou5ms.npy')
+data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/xyz_0_20_201_0_20_201_18_33_61_sett_10_count_5.npy')
 print(np.shape(data))
-data[:100, :, :] = 0
-data[155:, :, :] = 0
+# data[:, :, :] = 0
+# data[:, :, :] = 0
 # data = nd.filters.gaussian_filter(data, sigma=7)
 # data = np.round(data * 100000., decimals=0)
 
 # newlen = 50
-threshlow = 18000
-threshhigh = 20000
+threshlow = 0.1*10**6
+threshhigh = 1.0*10**6
 
 x, y, z = (threshlow < data).nonzero()
 
@@ -54,11 +54,11 @@ ax = fig.add_subplot(111, projection='3d')
 color = data[(threshlow < data).nonzero()]
 print(np.shape(color))
 print(color.min(), color.max())
-img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.3, depthshade=False, marker='.', s=300)
+img = ax.scatter(x, y, z, zdir='z', c=color, cmap=cm.jet, linewidths=0, alpha=0.3, depthshade=False, marker='.', s=100)
 cb = plt.colorbar(img)
-ax.set_xlim([120, 155])
-ax.set_ylim([0, 21])
-ax.set_zlim([0, 21])
+# ax.set_xlim([120, 155])
+# ax.set_ylim([0, 21])
+# ax.set_zlim([0, 21])
 
 
 
