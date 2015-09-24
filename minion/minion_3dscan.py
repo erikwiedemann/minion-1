@@ -425,7 +425,8 @@ class MinionVolumeMapDataAquisition(QObject):
                 # COUNT
                 apd1_count, apd2_count, apd_sum = self.fpga.count()  # in cps
                 volumemapdataupdate[self.indexlist[0, 0, i], self.indexlist[0, 1, i], self.indexlist[0, 2, i]] = apd_sum  # TODO - check if axis are correct
-
+                if (i+1) % 200*20 == 0:
+                    print('still going')
                 if (i+1) % (self.resolution1*self.resolution2) == 0:
                     self.progress = int(100*i/(self.resolution1*self.resolution2*self.resolution3))
                     self.update.emit(volumemapdataupdate, self.progress)
