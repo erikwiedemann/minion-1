@@ -7,10 +7,10 @@ import scipy.ndimage as ndi
 # data[5, 5, 5] = 10.
 # data = ndi.filters.gaussian_filter(data, sigma=1)
 # print(data.max())
-data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/x34_60-35_60-y26_60-27_60-z20-40-tset5ms-tcou5ms.npy')
+data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/xyz_0_20_201_0_20_201_18_33_61_sett_10_count_5.npy')
 
 
-def cube_show_slider(cube, axis=2, **kwargs):
+def cube_show_slider(cube, axis=0, **kwargs):
     """
     Display a 3d ndarray with a slider to move along the third dimension.
 
