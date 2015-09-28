@@ -125,6 +125,7 @@ class MinionCwodmrUI(QWidget):
 
         self.setLayout(cwodmrlayout)
 
+
     def abortodmrsweep(self):
         try:
             print('aborting sweep')
