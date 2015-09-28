@@ -100,6 +100,8 @@ class MinionCwodmrUI(QWidget):
         self.abortodmrsweepbutton = QPushButton('abort sweep')
         self.abortodmrsweepbutton.clicked.connect(self.abortodmrsweep)
 
+        self.saveodmrsweepbutton = QPushButton('save spectrum')
+        self.saveodmrsweepbutton.clicked.connect(self.saveodmrsweep)
 
         # LAYOUT
 
@@ -119,6 +121,7 @@ class MinionCwodmrUI(QWidget):
         cwodmrlayout.addWidget(self.sendlisttosmiqbutton)
         cwodmrlayout.addWidget(self.startcwodmrbutton)
         cwodmrlayout.addWidget(self.abortodmrsweepbutton)
+        cwodmrlayout.addWidget(self.saveodmrsweepbutton)
 
         self.setLayout(cwodmrlayout)
 
@@ -129,6 +132,10 @@ class MinionCwodmrUI(QWidget):
             self.cwODMRaquisitionthread.quit()
         except:
             print('no sweep running')
+
+    def saveodmrsweep(self):
+        np.save('odmr_data.npy', self.cwodmrdata)
+        print('spectrum saved')
 
     def freqchanged(self):
         freq = self.freqtext.value()*10**9
@@ -189,6 +196,8 @@ class MinionCwodmrUI(QWidget):
         # self.cwodmraxes.relim()
         # self.cwodmraxes.autoscale_view()
         self.cwodmrcanvas.draw()
+
+
 
     @pyqtSlot()
     def continueodmraquisition(self):
