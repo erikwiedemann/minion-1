@@ -7,7 +7,7 @@ import scipy.ndimage as ndi
 # data[5, 5, 5] = 10.
 # data = ndi.filters.gaussian_filter(data, sigma=1)
 # print(data.max())
-data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/xyz_0_20_201_0_20_201_18_33_61_sett_10_count_5.npy')
+data = np.load('/home/michael/Dropbox/NFP/2015/MASTERARBEIT/minion/minion/data/xyz_30_40_121_30_40_121_5_45_161_sett_10_count_5_nice.npy')
 
 
 def cube_show_slider(cube, axis=0, **kwargs):
