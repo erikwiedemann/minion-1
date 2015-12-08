@@ -1,4 +1,3 @@
-import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
 import matplotlib.style as mplstyle
@@ -7,6 +6,22 @@ from matplotlib.patches import Ellipse
 import scipy.ndimage as ndi
 import scipy.signal as sig
 import time
+import numpy as np
+import os
+import matplotlib as mpl
+from matplotlib.pyplot import cm
+from matplotlib import rc
+from matplotlib import ticker
+
+
+mplstyle.use('ggplot')  # 'ggplot', 'dark_background', 'bmh', 'fivethirtyeight'
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
+mpl.rcParams.update({'figure.autolayout' : True, 'font.size': 10, 'legend.fontsize': 10})
+textwidth_inch = 6.299
+
+
+
 
 def creategaussian(x, y, height, x0, y0, sigmax, sigmay, rot, offset):
     phi = np.deg2rad(rot)
@@ -43,23 +58,54 @@ x, y = np.meshgrid(x, y)
 # data += np.random.random((21, 21))*0.3
 # data /= data.max()
 
-plt.matshow(data, origin='lower')
+fig1 = plt.figure(figsize=(textwidth_inch/2, textwidth_inch/2))
+ax1 = fig1.add_subplot(111)
+ax1.matshow(data, origin='lower')
+ax1.set_xlabel(r'x [pixel]')
+ax1.set_ylabel(r'y [pixel]')
+ax1.set_xlim([-0.5, 40.5])
+ax1.set_ylim([-0.5, 40.5])
+
+
 p0 = [1., n/2., m/2., n/4., m/4., 45., 0.1]
 t1 = time.time()
 popt, pcov = opt.curve_fit(fit_fun, data, np.ravel(data), p0)
 print(time.time()-t1)
 print(popt)
 
-ell = Ellipse([popt[1], popt[2]], width=2*popt[3], height=2*popt[4], angle=-popt[5], lw=3)
-ax = plt.gca()
-ax.add_artist(ell)
+ell = Ellipse([popt[1], popt[2]], width=2*popt[3], height=2*popt[4], angle=-popt[5], lw=1)
+ax1.add_artist(ell)
 ell.set_facecolor('None')
-ell.set_edgecolor('white')
-plt.plot(popt[1], popt[2], 'w.', ms=10)
+ell.set_edgecolor('black')
+ax1.plot(popt[1], popt[2], 'black', ms=50)
 
-plt.matshow(creategaussian(x, y, *popt), origin='lower')
+fig2 = plt.figure(figsize=(textwidth_inch/2, textwidth_inch/2))
+ax2 = fig2.add_subplot(111)
+ax2.matshow(creategaussian(x, y, *popt), origin='lower')
+ax2.set_xlabel(r'x [pixel]')
+ax2.set_ylabel(r'y [pixel]')
+ax2.set_xlim([-0.5, 40.5])
+ax2.set_ylim([-0.5, 40.5])
 
-plt.figure()
-plt.plot(np.ravel(data))
-plt.plot(np.ravel(creategaussian(x, y, *popt)))
+
+fig3 = plt.figure(figsize=(textwidth_inch/10*8, textwidth_inch/3))
+ax3 = fig3.add_subplot(111)
+ax3.plot(np.ravel(data))
+ax3.plot(np.ravel(creategaussian(x, y, *popt)))
+ax3.set_xlim([0, 1680])
+ax3.set_ylim([0, 1.05])
+ax3.set_xlabel(r'position [pixel]')
+ax3.set_ylabel(r'intensity [norm.]')
+
+ax1.tick_params(labelbottom='on', labeltop='off', labelleft='on')
+ax2.tick_params(labelbottom='on', labeltop='off', labelleft='on')
+ax3.tick_params(labelbottom='on', labeltop='off', labelleft='on')
+ax3.locator_params(axis = 'x', nbins = 7)
+
+mpl.rcParams.update({'font.size': 10, 'legend.fontsize': 10})
+
+fig1.savefig('fit1.pdf', figsize=(textwidth_inch/2, textwidth_inch/2))
+fig2.savefig('fit2.pdf', figsize=(textwidth_inch/2, textwidth_inch/2))
+fig3.savefig('fit3.pdf', figsize=(textwidth_inch/10*8, textwidth_inch/3))
+
 plt.show()

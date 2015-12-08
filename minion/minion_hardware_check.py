@@ -29,7 +29,7 @@ class CheckHardware(QObject):
         try:
             self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
             hardware_laser = True
-        except serialutil.SerialException:
+        except:
             self.laser = []
             hardware_laser = False
             print('laser not connected at /dev/ttyUSB2')

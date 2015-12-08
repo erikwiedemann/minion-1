@@ -28,7 +28,7 @@ class MinionCwodmrUI(QWidget):
         self.parent = parent
         self.counter = self.parent.counter
 
-        smiq.connect(smiq)
+        # smiq.connect(smiq)
         self.measurementrunning = False
 
         self.frequency = 2.87*10**9  #Hz
@@ -42,7 +42,7 @@ class MinionCwodmrUI(QWidget):
         self.uisetup()
 
     def __del__(self):
-        smiq.disconnect(smiq)
+        pass# smiq.disconnect(smiq)
 
     def uisetup(self):
         self.cwodmrfigure = Figure()

@@ -48,6 +48,8 @@ def cube_show_slider(cube, axis=0, **kwargs):
         im = cube[s].squeeze()
         l.set_data(im, **kwargs)
         cb.set_clim(vmin=data.min(), vmax=data.max())
+        cb.formatter.set_powerlimits((0, 0))
+        cb.update_ticks()
         cb.draw_all()
         fig.canvas.draw()
 
