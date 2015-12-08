@@ -512,7 +512,7 @@ FindNV[{x0s_?NumericQ,y0s_?NumericQ,z0s_?NumericQ},o:OptionsPattern[]]:=
 				{ix,(xyz-w/2)[[xAxis]],(xyz+w/2)[[xAxis]],(w/(n-1))[[xAxis]]}],data},{3,1,2}];
 		resultList[[zAxis]]={MapAt[Show[#,Function[{u,v,\[Sigma]u,\[Sigma]v,\[Phi]},
 			Graphics[{Green,Translate[#,{u[[1]],v[[1]]}]&@Rotate[#,\[Phi][[1]]*Pi/180]&/@
-				{Circle[{0,0},Subtract@@@Abs@{\[Sigma]u,\[Sigma]v}],
+				{Circle[{0,0},Subtract@@@Abs@{\[Sigma]u,\[Sigma]v}//Abs],
 					Circle[{0,0},Plus@@@Abs@{\[Sigma]u,\[Sigma]v}]}}]]
 			@@Take[fit["ParameterTableEntries"],5,2]
 			]&,image,1],{fit["ParameterTable"],fit["RSquared"],
@@ -1458,9 +1458,9 @@ ODMRpulsed[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		If[splitTriggeredCountingBins,
 			If[outputData,Transpose[{paddedFrequencies,#}]&/@{data,dataSq},
 				{Map[ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
-				PlotRange->All]&,data,{2}],
+				PlotRange->All]&,Transpose[data,{3,1,2}],{2}],
 					Map[ListLinePlot[Sort[Transpose[{paddedFrequencies,#}],#1[[1]]<#2[[1]]&],
-				PlotRange->All]&,dataSq,{3}]}],Sequence[]],
+				PlotRange->All]&,Transpose[dataSq,{5,1,2,3,4}],{4}]}],Sequence[]],
 		{x,y,z},power,scans}];
 	stageRange=GetStageRange[];
 	deactivateMicrowave[Initialize->True];
@@ -1822,9 +1822,9 @@ ODMRrabi[xyz0:{_?NumericQ,_?NumericQ,_?NumericQ}|Null,
 		If[splitTriggeredCountingBins,
 			If[outputData,Transpose[{pulseLengths,#}]&/@{data,dataSq},
 				{Map[ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
-				PlotRange->All]&,data,{2}],
+				PlotRange->All]&,Transpose[data,{3,1,2}],{2}],
 					Map[ListLinePlot[Sort[Transpose[{pulseLengths,#}],#1[[1]]<#2[[1]]&],
-				PlotRange->All]&,dataSq,{3}]}],Sequence[]],
+				PlotRange->All]&,Transpose[dataSq,{5,1,2,3,4}],{4}]}],Sequence[]],
 		{x,y,z},frequency,power,scans}];
 	stageRange=GetStageRange[];
 	dt0=GetCounterCountingTime[];
@@ -2411,14 +2411,14 @@ AutoPeakFit[data_Graphics,options:OptionsPattern[]]:=
 	Module[{gPrimitive=Head[#]}, 
 		AutoPeakFit[#[[1]],options]
 		//{Switch[gPrimitive,Line,ListLinePlot,Point,ListPlot][#[[1]],PlotRange->All],
-			{#["ParameterTable"],#["RSquared"],
+			Sequence@@({#["ParameterTable"],#["RSquared"],
 				RootMeanSquare[#["FitResiduals"]]/#["ParameterTableEntries"][[3, 1]]}&/@
-			Rest[#]}&]&/@Cases[data,p:(Line|Point)[l_List/;Length[l]>2]:>p,\[Infinity]];
+			Rest[#])}&]&/@Cases[data,p:(Line|Point)[l_List/;Length[l]>2]:>p,\[Infinity]];
 Options[ODMRautoLineFit]=Options[AutoPeakFit];
 ODMRautoLineFit[data:(_Graphics|{{_?NumericQ,_?NumericQ}..}),options:OptionsPattern[]]:=
-	If[ListQ[data],#1[#2],#1/@#2]&[
+	If[ListQ[data],#1@MapAt[{#["ParameterTable"]}&,#2,{2;;}],#1/@#2]&[
 		If[Length[#[[2]]]>0,
-			ODMRmultiLineFit[data,#[[2,All,1,1,1,2,2]],#[[2,All,1,1,1,3,2]],
-			Abs@#[[2,All,1,1,1,5,2]]],data]&,
+			ODMRmultiLineFit[data,#[[2;;,1,1,1,2,2]],#[[2;;,1,1,1,3,2]],
+			Abs@#[[2;;,1,1,1,5,2]]],data]&,
 		AutoPeakFit[data,options]];
 ODMRautoLineFit[data_List,options:OptionsPattern[]]:=ODMRautoLineFit[#,options]&/@data;

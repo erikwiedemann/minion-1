@@ -27,12 +27,12 @@ class CheckHardware(QObject):
         # check for hardware and set states
 
         try:
-            self.laser = serial.Serial('/dev/ttyUSB0', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
+            self.laser = serial.Serial('/dev/ttyUSB3', baudrate=19200, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=1)
             hardware_laser = True
         except:
             self.laser = []
             hardware_laser = False
-            print('laser not connected at /dev/ttyUSB2')
+            print('laser not connected at /dev/ttyUSB3')
 
         try:
             CDLL('libstdc++.so.6', mode=RTLD_GLOBAL)
