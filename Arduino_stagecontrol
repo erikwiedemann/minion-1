@@ -1,0 +1,534 @@
+// define pin numbers, const == constant, won't ever change
+
+// define stepper pins
+const int Zpul = 24;
+const int Zdir = 26;
+const int Zena = 28;
+const int Ypul = 30;
+const int Ydir = 32;
+const int Yena = 34;
+const int Xpul = 36;
+const int Xdir = 42;
+const int Xena = 40;
+const int Tpul = 42;
+const int Tdir = 44;
+const int Tena = 46;
+
+// define stopper pin
+const int PinZstart = 41;
+const int PinZend = 43;
+const int PinYstart = 37;
+const int PinYend = 39;
+const int PinXstart = 33;
+const int PinXend =35;
+
+// define internal variables
+
+// stopper variables; false = no contact, true = contact = stop motion
+boolean stopperZstart = false;
+boolean stopperZend = false;
+boolean stopperYstart = false;
+boolean stopperYend = false;
+boolean stopperXstart = false;
+boolean stopperXend = false;
+
+int StateZstart = 0;
+int StateZend = 0;
+int StateYstart = 0;
+int StateYend = 0;
+int StateXstart = 0;
+int StateXend = 0;
+
+// define motion variables
+boolean reseter = false;
+boolean moveZ = false;
+boolean moveY = false;
+boolean moveX = false;
+boolean moveT = false;
+
+long moveZby = 0;
+long moveYby = 0;
+long moveXby = 0;
+long moveTby = 0;
+
+int dirZ = 0;
+int dirY = 0;
+int dirX = 0;
+int dirT = 0;
+
+// variables to save last stopper status
+// initial values of the stopper variable are HIGH, so that initially
+// no motion can be done
+int lastStateZstart = HIGH;
+int lastStateZend = HIGH;
+int lastStateYstart = HIGH;
+int lastStateYend = HIGH;
+int lastStateXstart = HIGH;
+int lastStateXend = HIGH;
+
+// timer variables
+long lastDebounceTime = 0;
+long debounceDelay = 50;
+
+
+// set up programme, initialise some things
+void setup(){
+  //set up serial port
+  Serial.begin(9600);
+  Serial.print("arduino mover initiated");
+  
+  // initialise stepper pin mode
+  pinMode(Zpul, OUTPUT);
+  pinMode(Zdir, OUTPUT);
+  pinMode(Zena, OUTPUT);
+  pinMode(Ypul, OUTPUT);
+  pinMode(Ydir, OUTPUT);
+  pinMode(Yena, OUTPUT);
+  pinMode(Xpul, OUTPUT);
+  pinMode(Xdir, OUTPUT);
+  pinMode(Xena, OUTPUT);
+  pinMode(Tpul, OUTPUT);
+  pinMode(Tdir, OUTPUT);
+  pinMode(Tena, OUTPUT);
+  
+  // initialise stopper pin mode
+  pinMode(PinZstart, INPUT);
+  pinMode(PinZend, INPUT);
+  pinMode(PinYstart, INPUT);
+  pinMode(PinYend, INPUT);
+  pinMode(PinXstart, INPUT);
+  pinMode(PinXend, INPUT);
+}
+
+// execute loop
+void loop(){
+  
+  receiver();
+  debouncer();
+  mover();
+  
+}
+
+// reads the data from the serial port and sets command variables
+void receiver(){
+  
+  // reading in commands and steps, separating and saving it into 
+  //single variables
+  int INPUT_SIZE = 30;
+  char input[INPUT_SIZE + 1];
+  byte size = Serial.readBytes(input, INPUT_SIZE);
+  input[size] = 0;
+  
+  if (input[0] = 'r'){
+    reseter = true;
+    char* separator = strchr(input, ':');
+    if (separator != 0){
+      *separator = 0;
+      ++separator;
+      moveTby = atoi(separator);
+    }
+  } else{
+    reseter = false;
+    char* command = strtok(input, "&");
+    while (command != 0){
+      char* separator1 = strchr(command, ':');
+      if (separator1 != 0){
+        char* separator2 = strchr(command, ':');
+        if (separator2 != 0){
+          *separator1 = 0;
+          *separator2 = 0;
+          int Id = atoi(command);
+          ++separator1;
+          int steps = atoi(separator1);
+          ++separator2;
+          int dir = atoi(separator2);
+          
+          if (Id == 1){
+            if (steps != 0){
+              moveZ = true;
+              moveZby = steps;
+              dirZ = dir;
+            } else{
+              moveZ = false;
+              moveZby = 0;
+            }
+          }
+                  
+          if (Id == 2){
+            if (steps != 0){
+              moveY = true;
+              moveYby = steps;
+              dirY = dir;
+            } else{
+              moveY = false;
+              moveYby = 0;
+            }
+          }
+                  
+          if (Id == 3){
+            if (steps != 0){
+               moveX = true;
+               moveXby = steps;
+               dirX = dir;
+            } else{
+              moveX = false;
+              moveXby = 0;
+            }
+          }
+                
+          if (Id == 4){
+            if (steps != 0){
+              moveT = true;
+              moveTby = steps;
+              dirT = dir;
+            } else{
+              moveT = false;
+              moveTby = 0;
+            }
+          }
+          
+        }
+      }
+        command = strtok(0, "&");
+    }
+  }
+}
+
+// debouncer function: checking twice, if stopper button is  
+// really pressed or if it is just noise or something else
+void debouncer(){
+  
+  // define variables
+  int reading;
+  long debounceDelay = 50;
+  
+  // check Zstart input, then check state
+  reading = digitalRead(PinZstart);
+  if (reading != lastStateZstart){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateZstart){
+      StateZstart = reading;
+    }
+  }
+  lastStateZstart = reading;
+  
+  if (StateZstart == HIGH){
+    stopperZstart = true;
+    Serial.println('stopped Zstart');
+  } else{
+    stopperZstart = false;
+  }
+  
+  // check Zend input, then check state
+  reading = digitalRead(PinZend);
+  if (reading != lastStateZend){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateZend)
+      StateZend = reading;
+  }
+  lastStateZend = reading;
+  
+  if (StateZend == HIGH){
+    stopperZend = true;
+    Serial.println('stopped at Zend');
+  } else{
+    stopperZend = false;
+  }
+  
+  // check Ystart input, then check state
+  reading = digitalRead(PinYstart);
+  if (reading != lastStateYstart){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateYstart){
+      StateYstart = reading;
+    }
+  }
+  lastStateYstart = reading;
+  
+  if (StateYstart == HIGH){
+    stopperYstart = true;
+    Serial.println('stopped at Ystart');
+  } else{
+    stopperYstart = false;
+  }
+  
+  // check Yend input, then check state
+  reading = digitalRead(PinYend);
+  if (reading != lastStateYend){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateYend){
+      StateYend = reading;
+    }
+  }
+  lastStateYend = reading;
+  
+  if (StateYend == HIGH){
+    stopperYend = true;
+    Serial.println('stopped at Yend');
+  } else{
+    stopperYend = false;
+  }
+  
+  // check Xstart input, then check state
+  reading = digitalRead(PinXstart);
+  if (reading != lastStateXstart){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateXstart){
+      StateXstart = reading;
+    }
+  }
+  lastStateXstart = reading;
+  
+  if (StateXstart == HIGH){
+    stopperXstart = true;
+    Serial.println('stopped at Xstart');
+  } else{
+    stopperXstart = false;
+  }
+  
+  // check Xend input, then check state
+  reading = digitalRead(PinXend);
+  if (reading != lastStateXend){
+    lastDebounceTime = millis();
+  }
+  
+  if ((millis() - lastDebounceTime) > debounceDelay){
+    if (reading != StateXend){
+      StateXend = reading;
+    }
+  }
+  lastStateXend = reading;
+  
+  if (StateXend == HIGH){
+    stopperXend = true;
+    Serial.println('stopped at Xend');
+  } else{
+    stopperXend = false;
+  }
+  
+  if (stopperZstart == true && stopperZend == true && stopperYstart == true && stopperZend == true && stopperXstart == true && stopperXend == true){
+    Serial.println('fullstop');
+  }
+  
+}
+
+// resets stage to zero position
+// move stage until stopper are touched
+void reset(){
+  if (reseter == true){
+    debouncer();
+    
+    //direction is negative here
+    
+    if (stopperZstart = false){
+      if (stopperZend = false){
+        digitalWrite(Zpul, HIGH);
+      } else{ 
+        digitalWrite(Zpul, LOW);
+      }
+    } else{
+      digitalWrite(Zpul, LOW);
+    }
+    if (stopperYstart = false){
+      if (stopperYend = false){
+        digitalWrite(Ypul, HIGH);
+      } else{ 
+        digitalWrite(Ypul, LOW);
+      }
+    } else{
+      digitalWrite(Ypul, LOW);
+    }
+    
+    if (stopperXstart = false){
+      if (stopperXend = false){
+        digitalWrite(Xpul, HIGH);
+      } else{ 
+        digitalWrite(Xpul, LOW);
+      }
+    } else{
+      digitalWrite(Xpul, LOW);
+    }
+    
+    // move theta to zero angle
+    for(int i=0; i <= moveTby; i++){
+      digitalWrite(Tdir, HIGH); // move backward
+      digitalWrite(Tpul, HIGH);
+    }
+  }
+}
+
+// mover: if movement is command, move; 
+// checks for stopper first, if LOW (false), move
+void mover(){
+  //Z
+  if (moveZ == true){
+    // enable Z 
+    digitalWrite(Zena, HIGH);
+    // set up direction
+    if (dirZ == 0){
+      digitalWrite(Zdir, LOW);
+    } else{
+      digitalWrite(Zdir, HIGH);
+    }
+    // move   
+    for (int i=0; i <= moveZby; i++){
+      if (stopperZstart = false){
+        if (stopperZend = false){
+          char stopperZ = Serial.read();
+          if (stopperZ == 's'){
+             digitalWrite(Zpul, LOW);
+             digitalWrite(Zena, LOW);
+          }else{
+            digitalWrite(Zpul, HIGH);
+          }
+        } else{ 
+          digitalWrite(Zpul, LOW);
+          //write status to software
+          Serial.println(stopperZend);
+        }
+      } else{
+        digitalWrite(Zpul, LOW);
+        //write status to software
+        Serial.println(stopperZstart);
+      }
+    }
+    // move-loop end
+    digitalWrite(Zpul, LOW);
+    digitalWrite(Zena, LOW);
+    Serial.println('Z moving finished');
+  } else{
+    // disable
+      digitalWrite(Zena, LOW);
+      digitalWrite(Zpul, LOW);
+  }
+  
+  //Y
+  if(moveY == true){
+    // enable Y
+    digitalWrite(Yena, HIGH);
+    // set up direction
+    if (dirY == 0){
+      digitalWrite(Ydir, LOW);
+    } else{
+      digitalWrite(Ydir, HIGH);
+    }
+    // move
+    for (int i=0; i <= moveYby; i++){
+      if (stopperYstart = false){
+        if (stopperYend = false){
+          char stopperY = Serial.read();
+          if (stopperY == 's'){
+            digitalWrite(Ypul, LOW);
+            digitalWrite(Yena, LOW);
+          } else{
+            digitalWrite(Ypul, HIGH);
+          }
+        } else{ 
+          digitalWrite(Ypul, LOW);
+          //write status to software
+          Serial.println(stopperYend);
+        }
+      } else{
+        digitalWrite(Ypul, LOW);
+        //write status to software
+        Serial.println(stopperYstart);
+      }
+    }
+    //move-loop ended
+    digitalWrite(Ypul, LOW);
+    digitalWrite(Yena, LOW);
+    Serial.println('Y moving finished');
+  } else{
+    // disable
+    digitalWrite(Yena, LOW);
+    digitalWrite(Ypul, LOW);
+  }
+  
+  //X
+  if(moveX == true){
+    // enable X
+    digitalWrite(Xena, HIGH);
+    // set up direction
+    if (dirX == 0){
+      digitalWrite(Xdir, LOW);
+    } else{
+      digitalWrite(Xdir, HIGH);
+    }
+    // move
+    for(int i=0; i <= moveXby; i++){
+      if (stopperXstart = false){
+        if (stopperXend = false){
+          char stopperX = Serial.read();
+          if(stopperX == 's'){
+            digitalWrite(Xpul, LOW);
+            digitalWrite(Xena, LOW);
+          }else{
+            digitalWrite(Xpul, HIGH);
+          }
+        } else{ 
+          digitalWrite(Xpul, LOW);
+          //write status to software
+          Serial.println(stopperXend);
+        }
+      } else{
+        digitalWrite(Xpul, LOW);
+        //write status to software
+        Serial.println(stopperXstart);
+      }
+    }
+    //move-loop ended
+    digitalWrite(Xpul, LOW);
+    digitalWrite(Xena, LOW);
+    Serial.println('X moving finished');
+  } else{
+    //disable
+    digitalWrite(Yena, LOW);
+    digitalWrite(Xpul, LOW);
+  }
+  
+  //theta
+  if(moveT == true){
+    // enable theta
+    digitalWrite(Tena, HIGH);
+    // set up direction
+    if (dirT == 0){
+      digitalWrite(Tdir, LOW);
+    } else{
+      digitalWrite(Tdir, HIGH);
+    }
+    // move
+    for(int i=0; i <= moveTby; i++){
+      char stopperT = Serial.read();
+      if(stopperT == 's'){
+        digitalWrite(Tpul, LOW);
+        digitalWrite(Tena, LOW);
+      }else{
+        digitalWrite(Tpul, HIGH);
+      }
+    }
+    //move loop-ended
+    digitalWrite(Tpul, LOW);
+    digitalWrite(Tena, LOW);
+    Serial.println('Theta moving finished');
+  } else{
+    // disable
+    digitalWrite(Yena, LOW);
+    digitalWrite(Tpul, LOW);
+  }
+  
+}
